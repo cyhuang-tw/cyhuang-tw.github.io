@@ -1,6 +1,6 @@
 ---
 title: "Toward Degradation-Robust Voice Conversion"
-authors: Chien-yu Huang, Kai-Wei Chang, Hung-yi Lee
+authors: "<u>Chien-yu Huang</u>, Kai-Wei Chang, Hung-yi Lee"
 collection: publications
 permalink: /publication/2022-icassp-robust-vc
 excerpt: ''

@@ -1,6 +1,6 @@
 ---
 title: "Defending Your Voice: Adversarial Attack on Voice Conversion"
-authors: Chien-yu Huang, Yist Y. Lin, Hung-yi Lee, Lin-shan Lee
+authors: "<u>Chien-yu Huang</u>, Yist Y. Lin, Hung-yi Lee, Lin-shan Lee"
 collection: publications
 permalink: /publication/2021-slt-attack-vc
 excerpt: ''

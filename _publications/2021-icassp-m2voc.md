@@ -1,5 +1,6 @@
 ---
 title: "Investigating on Incorporating Pretrained and Learnable Speaker Representations for Multi-Speaker Multi-Style Text-to-Speech"
+authors: "Chung-Ming Chien, Jheng-Hao Lin, <u>Chien-yu Huang</u>, Po-chun Hsu, Hung-yi Lee"
 collection: publications
 permalink: /publication/2021-icassp-m2voc
 excerpt: ''

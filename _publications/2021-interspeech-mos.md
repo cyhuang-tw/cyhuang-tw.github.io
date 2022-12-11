@@ -1,5 +1,6 @@
 ---
 title: "Utilizing Self-supervised Representations for MOS Prediction"
+authors: "Wei-Cheng Tseng<sub>(co-first)</sub>, <u>Chien-yu Huang</u><sub>(co-first)</sub>, Wei-Tsung Kao, Yist Y Lin, Hung-yi Lee"
 collection: publications
 permalink: /publication/2021-interspeech-mos
 excerpt: ''
