@@ -11,21 +11,22 @@ redirect_from:
 
 Education
 ======
-* B.S. in GitHub, GitHub University, 2012
-* M.S. in Jekyll, GitHub University, 2014
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
+* M.S. in Electrical Engineering, National Taiwan University, 2021.
+  * Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee
+  * Speech Processing Laboratory
+  * GPA: 4.3/4.3
+* B.S. in Electrical Engineering, National Taiwan University, 2019.
+  * GPA: 4.09/4.3
+  * Rank: 26-th out of 190 students.
 
-Work experience
+Experience
 ======
-* Summer 2015: Research Assistant
-  * Github University
-  * Duties included: Tagging issues
-  * Supervisor: Professor Git
+* R&D Engineer, MediaTek Inc.
+  * Lightweight network for super-resolution and frame-rate conversion (MEMC).
 
-* Fall 2015: Research Assistant
-  * Github University
-  * Duties included: Merging pull requests
-  * Supervisor: Professor Hub
+* Teaching Assistant
+  * [Digital Speech Processing](https://speech.ee.ntu.edu.tw/DSP2019Autumn/), NTU EE.
+
   
 Skills
 ======
@@ -54,6 +55,3 @@ Teaching
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
   
-Service and leadership
-======
-* Currently signed in to 43 different slack teams
