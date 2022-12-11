@@ -29,9 +29,15 @@ Experience
   * [Machine Learning](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html), NTU GICE
   * [Digital Speech Processing](https://speech.ee.ntu.edu.tw/DSP2019Autumn/), NTU EE
 
-* Public Relation, Speech Processing Lab., NTU
+* Public Relation, Speech Processing Laboratory, NTU
 
 * Director, Student Association of Graduate Institute of Electrical Engineering, NTU
+
+Publications
+======
+  <ul>{% for post in site.publications reversed %}
+    {% include archive-single-cv.html %}
+  {% endfor %}</ul>
   
 Technical Skills
 ======
@@ -44,12 +50,6 @@ Technical Skills
 * Deep Learning
 * Speech Processing
 
-Publications
-======
-  <ul>{% for post in site.publications %}
-    {% include archive-single-cv.html %}
-  {% endfor %}</ul>
-  
 Talks
 ======
   <ul>{% for post in site.talks %}
