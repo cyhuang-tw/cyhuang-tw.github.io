@@ -7,5 +7,3 @@ date: 2021-01-19
 venue: 'IEEE Spoken Language Technology Workshop'
 paperurl: 'https://arxiv.org/pdf/2011.12063.pdf'
 ---
-
-[pdf](https://arxiv.org/pdf/2011.12063.pdf)
