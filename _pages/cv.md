@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "CV"
+title: "Curriculum Vitae"
 permalink: /cv/
 author_profile: true
 redirect_from:
@@ -24,18 +24,25 @@ Experience
 * R&D Engineer, MediaTek Inc.
   * Lightweight network for super-resolution and frame-rate conversion (MEMC).
 
-* Teaching Assistant
-  * [Digital Speech Processing](https://speech.ee.ntu.edu.tw/DSP2019Autumn/), NTU EE.
+* Teaching Assistant, NTU
+  * [Machine Learning](https://speech.ee.ntu.edu.tw/~hylee/ml/2021-spring.php), NTU GICE
+  * [Machine Learning](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html), NTU GICE
+  * [Digital Speech Processing](https://speech.ee.ntu.edu.tw/DSP2019Autumn/), NTU EE
 
+* Public Relation, Speech Processing Lab., NTU
+
+* Director, Student Association of Graduate Institute of Electrical Engineering, NTU
   
-Skills
+Technical Skills
 ======
-* Skill 1
-* Skill 2
-  * Sub-skill 2.1
-  * Sub-skill 2.2
-  * Sub-skill 2.3
-* Skill 3
+* C++
+* Python
+* TensorFlow
+* PyTorch
+* LaTex
+* Machine Learning
+* Deep Learning
+* Speech Processing
 
 Publications
 ======
