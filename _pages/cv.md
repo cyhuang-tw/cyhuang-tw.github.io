@@ -45,7 +45,7 @@ Technical Skills
 * Python
 * TensorFlow
 * PyTorch
-* LaTex
+* LaTeX
 * Machine Learning
 * Deep Learning
 * Speech Processing
