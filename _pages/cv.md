@@ -24,21 +24,21 @@ Experience
 * R&D Engineer, MediaTek Inc.
   * Lightweight network for super-resolution and frame-rate conversion (MEMC).
 
-* Teaching Assistant, NTU
-  * [Machine Learning](https://speech.ee.ntu.edu.tw/~hylee/ml/2021-spring.php), NTU GICE
-  * [Machine Learning](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html), NTU GICE
-  * [Digital Speech Processing](https://speech.ee.ntu.edu.tw/DSP2019Autumn/), NTU EE
+* Teaching Assistant, National Taiwan University
+  * [Machine Learning (2021 Spring)](https://speech.ee.ntu.edu.tw/~hylee/ml/2021-spring.php)
+  * [Machine Learning (2020 Spring)](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html)
+  * [Digital Speech Processing (2019 Autumn)](https://speech.ee.ntu.edu.tw/DSP2019Autumn/)
 
-* Public Relation, Speech Processing Laboratory, NTU
+* Public Relation, Speech Processing Laboratory, National Taiwan University
 
-* Director, Student Association of Graduate Institute of Electrical Engineering, NTU
+* Director, Student Association of Graduate Institute of Electrical Engineering, National Taiwan University
 
 Publications
 ======
   <ul>{% for post in site.publications reversed %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
-  
+
 Technical Skills
 ======
 * C++
@@ -50,15 +50,15 @@ Technical Skills
 * Deep Learning
 * Speech Processing
 
-Talks
+<!-- Talks
 ======
   <ul>{% for post in site.talks %}
     {% include archive-single-talk-cv.html %}
-  {% endfor %}</ul>
-  
-Teaching
+  {% endfor %}</ul> -->
+
+<!-- Teaching
 ======
   <ul>{% for post in site.teaching %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
-  
+   -->
