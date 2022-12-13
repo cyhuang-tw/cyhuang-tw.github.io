@@ -17,6 +17,7 @@ Education
   * Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee
   * Speech Processing Laboratory
   * GPA: 4.3/4.3
+
 * B.S. in Electrical Engineering, National Taiwan University, 2019.
   * GPA: 4.09/4.3
   * Rank: 26-th out of 190 students.
@@ -38,7 +39,13 @@ Experience
 Publications
 ======
   <ul>{% for post in site.publications reversed %}
-    {% include archive-single-cv.html %}
+    {% include archive-single-publication-cv.html %}
+  {% endfor %}</ul>
+
+Honors
+======
+  <ul>{% for post in site.honors reversed %}
+    {% include archive-single-honor-cv.html %}
   {% endfor %}</ul>
 
 Technical Skills
