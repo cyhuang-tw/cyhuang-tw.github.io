@@ -23,17 +23,17 @@ Education
 
 Experience
 ======
-* R&D Engineer, MediaTek Inc. (Aug. 2021 - Now)
+* R&D Engineer - MediaTek Inc. (Aug. 2021 - Now)
   * Lightweight network for super-resolution and frame-rate conversion (MEMC).
 
-* Teaching Assistant, National Taiwan University
+* Teaching Assistant - National Taiwan University
   * [Machine Learning (2021 Spring)](https://speech.ee.ntu.edu.tw/~hylee/ml/2021-spring.php)
   * [Machine Learning (2020 Spring)](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html)
   * [Digital Speech Processing (2019 Autumn)](https://speech.ee.ntu.edu.tw/DSP2019Autumn/)
 
-* Public Relation, Speech Processing Laboratory, National Taiwan University (Sep. 2019 - Jul. 2020)
+* Public Relation - Speech Processing Laboratory, National Taiwan University (Sep. 2019 - Jul. 2020)
 
-* Director, Student Association of Graduate Institute of Electrical Engineering, National Taiwan University (Jan. 2019 - Jan. 2020)
+* Director - Student Association of Graduate Institute of Electrical Engineering, National Taiwan University (Jan. 2019 - Jan. 2020)
 
 Publications
 ======
