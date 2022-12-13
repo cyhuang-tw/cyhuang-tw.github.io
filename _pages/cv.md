@@ -9,6 +9,8 @@ redirect_from:
 
 {% include base_path %}
 
+---
+
 Education
 ======
 * M.S. in Electrical Engineering, National Taiwan University, 2021.
