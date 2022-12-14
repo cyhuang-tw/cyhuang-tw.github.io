@@ -7,10 +7,10 @@ main:
     url: /honors/
 
   # - title: "Teaching"
-  #   url: /teaching/    
+  #   url: /teaching/
     
-  - title: "Portfolio"
-    url: /portfolio/
+  - title: "Projects"
+    url: /projects/
         
   - title: "Blog Posts"
     url: /year-archive/
