@@ -190,6 +190,9 @@ collections:
   honors:
     output: false
     permalink: /:collection/:path/
+  exps:
+    output: false
+    permalink: /:collection/:path/
 
 
 # Defaults

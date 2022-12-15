@@ -14,27 +14,19 @@ redirect_from:
 Education
 ======
 * M.S. in Electrical Engineering, National Taiwan University, 2021.
-  * Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee
-  * Speech Processing Laboratory
-  * GPA: 4.3/4.3
+  * <font size="3">Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee</font>
+  * <font size="3">Speech Processing Laboratory</font>
+  * <font size="3">GPA: 4.3/4.3</font>
 
 * B.S. in Electrical Engineering, National Taiwan University, 2019.
-  * GPA: 4.09/4.3
-  * Rank: 26-th out of 190 students.
+  * <font size="3">GPA: 4.09/4.3</font>
+  * <font size="3">Rank: 26-th out of 190 students.</font>
 
 Experience
 ======
-* R&D Engineer - MediaTek Inc. (Aug. 2021 - Now)
-  * Lightweight network for super-resolution and frame-rate conversion (MEMC).
-
-* Teaching Assistant - National Taiwan University
-  * [Machine Learning (2021 Spring)](https://speech.ee.ntu.edu.tw/~hylee/ml/2021-spring.php)
-  * [Machine Learning (2020 Spring)](https://speech.ee.ntu.edu.tw/~tlkagk/courses_ML20.html)
-  * [Digital Speech Processing (2019 Autumn)](https://speech.ee.ntu.edu.tw/DSP2019Autumn/)
-
-* Public Relation - Speech Processing Laboratory, National Taiwan University (Sep. 2019 - Jul. 2020)
-
-* Director - Student Association of Graduate Institute of Electrical Engineering, National Taiwan University (Jan. 2019 - Jan. 2020)
+  <ul>{% for post in site.exps reversed %}
+    {% include archive-single-exp-cv.html %}
+  {% endfor %}</ul>
 
 Publications
 ======
