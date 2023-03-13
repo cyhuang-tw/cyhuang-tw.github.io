@@ -30,7 +30,7 @@
         {{ title }}
     </h3>
     {% if post.date %}
-      <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B, %Y" }}</time>&nbsp;&nbsp;&nbsp;&nbsp;<strong><i class="fa fa-map-marker-alt" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.venue }}</time></font></p>
+      <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B %Y" }}</time>&nbsp;&nbsp;&nbsp;&nbsp;<strong><i class="fa fa-map-marker-alt" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.venue }}</time></font></p>
     {% endif %}
     </li>
  </article>
