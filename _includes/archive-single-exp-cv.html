@@ -30,9 +30,9 @@
         {{ title }}
     </h3>
     {% if post.current_status %}
-        <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.start_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.start_date | default: "1900-01-01" | date: "%B, %Y" }}</time> - Now</font></p>
+        <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.start_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.start_date | default: "1900-01-01" | date: "%B %Y" }}</time> - Now</font></p>
     {% else %}
-        <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.start_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.start_date | default: "1900-01-01" | date: "%B, %Y" }}</time> - <time datetime="{{ post.end_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.end_date | default: "1900-01-01" | date: "%B, %Y" }}</time></font></p>
+        <p><font size="3"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.start_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.start_date | default: "1900-01-01" | date: "%B %Y" }}</time> - <time datetime="{{ post.end_date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.end_date | default: "1900-01-01" | date: "%B %Y" }}</time></font></p>
     {% endif %}
     {% if post.excerpt %}
         <p class="archive__item-excerpt" itemprop="description"><font size="3">{{ post.excerpt | markdownify }}</font></p>
