@@ -31,7 +31,7 @@
     </h2>
 
     {% if post.date %}
-      <p><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B, %Y" }}</time>&nbsp;&nbsp;&nbsp;&nbsp;<strong><i class="fa fa-map-marker-alt" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.venue }}</time></p>
+      <p><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B %Y" }}</time>&nbsp;&nbsp;&nbsp;&nbsp;<strong><i class="fa fa-map-marker-alt" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.venue }}</time></p>
     {% endif %}
 
     {% if post.read_time %}
