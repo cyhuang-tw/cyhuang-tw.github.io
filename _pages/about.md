@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-I am a R&D engineer at MediaTek Inc. working on computer vision tasks such as super-solution and frame-rate conversion (MEMC). More specifically, I am responsible for designing and training lightweight networks which can be run on mobile devices in real-time. I received the M.S. degree from National Taiwan University in 2021. During the time, I joined the Speech Processing Laboratory led by [Prof. Lin-shan Lee](https://linshanlee.com) and [Prof. Hung-yi Lee](https://speech.ee.ntu.edu.tw/~hylee/index.php). My research topics are mainly focused on speech synthesis, including voice conversion, text-to-speech, and speech quality assessment.
+I am a research assistant at Speech Processing Lab., National Taiwan University. Prior to my current role, I was a R&D engineer at MediaTek Inc. working on computer vision tasks such as super-solution and frame-rate conversion (MEMC). I designed and trained lightweight networks which can be run on mobile devices in real-time. I received the M.S. degree from National Taiwan University in 2021. During the time, I joined the Speech Processing Laboratory led by [Prof. Lin-shan Lee](https://linshanlee.com) and [Prof. Hung-yi Lee](https://speech.ee.ntu.edu.tw/~hylee/index.php). My research topics are mainly focused on speech synthesis, including voice conversion, text-to-speech, and speech quality assessment.
 
 <!-- A data-driven personal website
 ======
