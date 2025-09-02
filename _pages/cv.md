@@ -13,14 +13,13 @@ redirect_from:
 
 Education
 ======
-* M.S. in Electrical Engineering, National Taiwan University, 2021.
-  * <font size="3">Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee</font>
-  * <font size="3">Speech Processing Laboratory</font>
-  * <font size="3">GPA: 4.3/4.3</font>
+* Ph.D. in Language and Information Technologies, Carnegie Mellon University, 2025 - Now.
+  * <font size="3">Advisor: Prof. Shinji Watanabe</font>
 
-* B.S. in Electrical Engineering, National Taiwan University, 2019.
-  * <font size="3">GPA: 4.09/4.3</font>
-  * <font size="3">Rank: 26-th out of 190 students.</font>
+* M.S. in Electrical Engineering, National Taiwan University, 2019 - 2021.
+  * <font size="3">Advisors: Prof. Lin-shan Lee & Prof. Hung-yi Lee</font>
+
+* B.S. in Electrical Engineering, National Taiwan University, 2015 - 2019.
 
 Experience
 ======

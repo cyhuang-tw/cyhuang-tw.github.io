@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-I am a research assistant at Speech Processing Lab., National Taiwan University. Prior to my current role, I was a R&D engineer at MediaTek Inc. working on computer vision tasks such as super-solution and frame-rate conversion (MEMC). I designed and trained lightweight networks which can be run on mobile devices in real-time. I received the M.S. degree from National Taiwan University in 2021. During the time, I joined the Speech Processing Laboratory led by [Prof. Lin-shan Lee](https://linshanlee.com) and [Prof. Hung-yi Lee](https://speech.ee.ntu.edu.tw/~hylee/index.php). My research topics are mainly focused on speech synthesis, including voice conversion, text-to-speech, and speech quality assessment.
+I am a first-year Ph.D. student at Language Technologies Institute, Carnegie Mellon University, advised by [Prof. Shinji Watanabe](https://sites.google.com/view/shinjiwatanabe). My research interest mainly focuses on speech and language, and recently I am interested developing spoken language models. Previously, I was a research assistant at Speech Processing Lab., National Taiwan University. I was also a R&D engineer at MediaTek Inc. working on computer vision tasks such as super-solution and frame-rate conversion (MEMC). I designed and trained lightweight networks which can be run on mobile devices in real-time. I received the M.S. degree from National Taiwan University in 2021. During the time, I joined the Speech Processing Laboratory led by [Prof. Lin-shan Lee](https://linshanlee.com) and [Prof. Hung-yi Lee](https://speech.ee.ntu.edu.tw/~hylee/index.php).
 
 <!-- A data-driven personal website
 ======
