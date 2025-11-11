@@ -82,8 +82,8 @@ analytics:
 author:
   name             : "Chien-yu Huang"
   avatar           : "profile.png"
-  bio              : "A research assistant at National Taiwan University."
-  location         : "Taipei, Taiwan"
+  bio              : "Ph.D. student at Carnegie Mellon University"
+  location         : "Pittsburgh, PA, USA"
   employer         :
   pubmed           :
   googlescholar    : "https://scholar.google.com/citations?user=1Xfc3ikAAAAJ"
@@ -181,9 +181,6 @@ collections:
   publications:
     output: true
     permalink: /:collection/:path/
-  projects:
-    output: false
-    permalink: /:collection/:path/
   # talks:
   #   output: true
   #   permalink: /:collection/:path/
@@ -233,15 +230,6 @@ defaults:
       author_profile: true
       share: true
       comments: true
-  # _projects
-  - scope:
-      path: ""
-      type: projects
-    values:
-      layout: single
-      author_profile: true
-      share: true
-      comment: true
   # _talks
   # - scope:
   #     path: ""

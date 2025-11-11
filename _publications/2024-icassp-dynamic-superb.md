@@ -5,7 +5,7 @@ collection: publications
 permalink: /publication/2024-icassp-dynamic-superb
 excerpt: ''
 date: 2024-04-14
-venue: 'IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (under review)'
+venue: 'IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)'
 paperurl: 'https://arxiv.org/pdf/2309.09510.pdf'
 repo: https://github.com/dynamic-superb/dynamic-superb
 ---

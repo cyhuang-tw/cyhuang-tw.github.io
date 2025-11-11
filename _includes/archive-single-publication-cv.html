@@ -29,8 +29,18 @@
     <h3 class="archive__item-title" itemprop="headline">
         {{ title }}
     </h3>
-    <p><font size="3"> {{ post.authors }} </font></p>
-    <p><font size="3">In <i>{{ post.venue }}</i>, {{ post.date | default: "1900-01-01" | date: "%Y" }}. </font></p>
+    <div class="publication-authors"><font size="3">{{ post.authors }}</font></div>
+    <div class="publication-venue">
+      <font size="3"><i>{{ post.venue }}</i> {{ post.date | default: "1900-01-01" | date: "%Y" }}</font>
+    </div>
+    {% if post.paperurl or post.repo %}
+    <div class="publication-links">
+      <font size="3">
+        {% if post.paperurl %}[<a href="{{ post.paperurl }}">paper</a>]{% endif %}
+        {% if post.repo %} [<a href="{{ post.repo }}">code</a>]{% endif %}
+      </font>
+    </div>
+    {% endif %}
     </li>
  </article>
 </div>
