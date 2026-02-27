@@ -5,6 +5,6 @@ collection: publications
 permalink: /publication/2025-icassp-speechcaps
 excerpt: ''
 date: 2025-04-06
-venue: 'The Thirteenth International Conference on Learning Representations'
+venue: 'IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)'
 paperurl: 'https://arxiv.org/pdf/2408.13891.pdf'
 ---

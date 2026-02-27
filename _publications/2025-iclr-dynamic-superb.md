@@ -5,6 +5,6 @@ collection: publications
 permalink: /publication/2025-iclr-dynamic-superb
 excerpt: ''
 date: 2025-04-24
-venue: 'IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)'
+venue: 'The Thirteenth International Conference on Learning Representations'
 paperurl: 'https://arxiv.org/pdf/2411.05361.pdf'
 ---
