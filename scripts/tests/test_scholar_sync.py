@@ -162,6 +162,51 @@ class TestMatching(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
+    def test_site_titles_skips_malformed_yaml_with_warning(self):
+        # Item 4: malformed front matter (e.g. an unterminated quoted scalar)
+        # raises yaml.YAMLError from yaml.safe_load. One bad hand-edited
+        # file must not take down the whole monthly run -- skip just that
+        # file, with a WARNING naming it, and keep reading the rest.
+        tmp = tempfile.mkdtemp()
+        try:
+            with io.open(os.path.join(tmp, "good.md"), "w", encoding="utf-8") as fh:
+                fh.write('---\ntitle: "Good Paper"\n---\n')
+            with io.open(os.path.join(tmp, "bad.md"), "w", encoding="utf-8") as fh:
+                fh.write('---\ntitle: "Bad Paper\n---\n')
+            stderr = io.StringIO()
+            with mock.patch("sys.stderr", stderr):
+                titles = scholar_sync.site_titles(tmp)
+            self.assertEqual(titles, set([scholar_sync.normalize_title("Good Paper")]))
+            message = stderr.getvalue()
+            self.assertIn("WARNING", message)
+            self.assertIn("bad.md", message)
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_site_titles_skips_non_string_title_with_warning(self):
+        # Item 4: a title that parses but is not a string (a bare number, or
+        # a YAML list) makes normalize_title()'s `.lower()` raise
+        # AttributeError. Skip that entry with a WARNING naming the file
+        # instead of crashing the whole run.
+        tmp = tempfile.mkdtemp()
+        try:
+            with io.open(os.path.join(tmp, "good.md"), "w", encoding="utf-8") as fh:
+                fh.write('---\ntitle: "Good Paper"\n---\n')
+            with io.open(os.path.join(tmp, "number-title.md"), "w", encoding="utf-8") as fh:
+                fh.write("---\ntitle: 2024\n---\n")
+            with io.open(os.path.join(tmp, "list-title.md"), "w", encoding="utf-8") as fh:
+                fh.write("---\ntitle:\n  - Not\n  - A String\n---\n")
+            stderr = io.StringIO()
+            with mock.patch("sys.stderr", stderr):
+                titles = scholar_sync.site_titles(tmp)
+            self.assertEqual(titles, set([scholar_sync.normalize_title("Good Paper")]))
+            message = stderr.getvalue()
+            self.assertIn("WARNING", message)
+            self.assertIn("number-title.md", message)
+            self.assertIn("list-title.md", message)
+        finally:
+            shutil.rmtree(tmp)
+
     def test_site_titles_round_trips_through_render_stub(self):
         # Finding 1 regression guard: render_stub's title line carries a
         # trailing `# TODO` comment. A site_titles() that regexes for
@@ -467,6 +512,21 @@ class TestMain(unittest.TestCase):
         sleep_patcher = mock.patch("scholar_sync.time.sleep")
         sleep_patcher.start()
         self.addCleanup(sleep_patcher.stop)
+        # main() prints its progress (entry/new counts, filenames, and the
+        # full pr_body on --dry-run) and writes WARNINGs to stderr. Left
+        # unpatched, that leaks dozens of lines into the suite's own stdout
+        # and interleaves with unittest's progress dots on stderr. Capture
+        # both here so every test in this class gets pristine output for
+        # free; a test that needs to inspect what was written reads
+        # self.stdout / self.stderr directly.
+        self.stdout = io.StringIO()
+        self.stderr = io.StringIO()
+        stdout_patcher = mock.patch("sys.stdout", self.stdout)
+        stdout_patcher.start()
+        self.addCleanup(stdout_patcher.stop)
+        stderr_patcher = mock.patch("sys.stderr", self.stderr)
+        stderr_patcher.start()
+        self.addCleanup(stderr_patcher.stop)
 
     def _patch_common(
         self,
@@ -652,25 +712,93 @@ class TestMain(unittest.TestCase):
                 scholar_sync.main([])
         mock_run.assert_not_called()
 
-    def test_listing_shorter_than_site_raises_fetch_error(self):
-        # Finding 3 regression guard: a degraded listing that still yields
-        # a couple of rows, all already on the site, must not read as quiet
-        # success. The profile can only ever be a superset of the site, so
-        # a listing shorter than site_titles() is itself proof of a failed
-        # or truncated fetch.
+    def test_single_new_paper_with_failed_detail_fetch_degrades_not_raises(self):
+        # Item 2: with exactly one new paper, a failed detail fetch is the
+        # single most common ordinary failure (an HTTP 404), not proof of a
+        # block -- a genuine block hits every request, and a block month
+        # almost never has exactly one new paper. Degrade to the blank stub
+        # the per-entry handler already writes, warn that the draft is
+        # sparse, and keep going instead of raising.
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+
+        def fetch_side_effect(url):
+            if "view_op=view_citation" in url:
+                raise scholar_sync.FetchError("detail blocked")
+            return "<html></html>"
+
+        self._patch_common(entries, fetch_side_effect=fetch_side_effect)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main([])
+        self.assertEqual(rc, 0)
+        mock_run.assert_called()
+
+        message = self.stderr.getvalue()
+        self.assertIn("WARNING", message)
+        self.assertIn("sparse", message)
+
+        written = os.listdir(self.tmp)
+        self.assertEqual(len(written), 1)
+        with io.open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
+            content = fh.read()
+        self.assertIn("Scholar returned no authors for this entry", content)
+        self.assertIn('authors: ""', content)
+        self.assertIn('venue: "Preprint"', content)
+
+    def test_listing_below_severe_floor_raises_fetch_error(self):
+        # Item 1: the floor check now only raises on a *severe* shortfall --
+        # fewer entries than roughly half the site's publication count
+        # (max(1, len(site_known) // 2)). With 4 site publications the floor
+        # is 2, so a listing of just 1 entry is still proof of a truncated
+        # or partially blocked fetch and must raise, naming both counts.
         entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
         site_known = set(
-            [
-                scholar_sync.normalize_title("Existing Paper One"),
-                scholar_sync.normalize_title("Existing Paper Two"),
+            scholar_sync.normalize_title(title)
+            for title in [
+                "Existing Paper One",
+                "Existing Paper Two",
+                "Existing Paper Three",
+                "Existing Paper Four",
             ]
         )
         self._patch_common(entries, site_titles=site_known)
         with mock.patch.object(scholar_sync, "run") as mock_run:
-            with self.assertRaises(scholar_sync.FetchError):
+            with self.assertRaises(scholar_sync.FetchError) as cm:
                 scholar_sync.main([])
         mock_run.assert_not_called()
         self.assertEqual(os.listdir(self.tmp), [])
+        message = str(cm.exception)
+        self.assertIn("1", message)
+        self.assertIn("4", message)
+
+    def test_listing_shorter_than_site_but_above_floor_warns_and_continues(self):
+        # Item 1: a listing shorter than the site but at or above the floor
+        # is normal (the owner added papers before Scholar indexed them, or
+        # pruned duplicates from the Scholar profile) -- warn naming both
+        # counts and keep going, rather than failing the whole run.
+        entries = [
+            scholar_sync.Entry("U:new1", "Brand New Paper", "2026"),
+            scholar_sync.Entry("U:new2", "Second New Paper Here", "2026"),
+            scholar_sync.Entry("U:new3", "Third New Paper Here", "2026"),
+        ]
+        site_known = set(
+            scholar_sync.normalize_title(title)
+            for title in [
+                "Existing Paper One",
+                "Existing Paper Two",
+                "Existing Paper Three",
+                "Existing Paper Four",
+            ]
+        )
+        self._patch_common(entries, site_titles=site_known)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main([])
+        self.assertEqual(rc, 0)
+        mock_run.assert_called()
+        message = self.stderr.getvalue()
+        self.assertIn("WARNING", message)
+        self.assertIn("3", message)
+        self.assertIn("4", message)
+        self.assertEqual(len(os.listdir(self.tmp)), 3)
 
     def test_listing_fetch_error_propagates_out_of_main(self):
         def fetch_side_effect(url):
@@ -691,6 +819,18 @@ class TestGitFailureHandling(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        # See TestMain.setUp: same rationale for all three patches below.
+        sleep_patcher = mock.patch("scholar_sync.time.sleep")
+        sleep_patcher.start()
+        self.addCleanup(sleep_patcher.stop)
+        self.stdout = io.StringIO()
+        self.stderr = io.StringIO()
+        stdout_patcher = mock.patch("sys.stdout", self.stdout)
+        stdout_patcher.start()
+        self.addCleanup(stdout_patcher.stop)
+        stderr_patcher = mock.patch("sys.stderr", self.stderr)
+        stderr_patcher.start()
+        self.addCleanup(stderr_patcher.stop)
 
     def test_git_push_failure_reports_branch_and_step_and_exits_nonzero(self):
         entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
@@ -716,9 +856,7 @@ class TestGitFailureHandling(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, args)
             return None
 
-        stderr = io.StringIO()
-        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
-             mock.patch("sys.stderr", stderr):
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run:
             rc = scholar_sync.main([])
 
         self.assertEqual(rc, 1)
@@ -727,7 +865,7 @@ class TestGitFailureHandling(unittest.TestCase):
         # The sequence must stop at the failed step: gh pr create never runs.
         self.assertNotIn(["gh", "pr"], steps_attempted)
 
-        message = stderr.getvalue()
+        message = self.stderr.getvalue()
         self.assertIn("git push origin", message)
         self.assertIn(scholar_sync.BRANCH_PREFIX, message)
         self.assertIn("nothing was", message.lower())
@@ -761,16 +899,14 @@ class TestGitFailureHandling(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, args)
             return None
 
-        stderr = io.StringIO()
-        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
-             mock.patch("sys.stderr", stderr):
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run:
             rc = scholar_sync.main([])
 
         self.assertEqual(rc, 1)
         steps_attempted = [c.args[0][:2] for c in mock_run.call_args_list]
         self.assertIn(["gh", "pr"], steps_attempted)
 
-        message = stderr.getvalue()
+        message = self.stderr.getvalue()
         self.assertIn("gh pr create", message)
         self.assertIn(scholar_sync.BRANCH_PREFIX, message)
         branch = [c.args[0] for c in mock_run.call_args_list][0][3]
@@ -804,9 +940,7 @@ class TestGitFailureHandling(unittest.TestCase):
                 raise OSError("[Errno 2] No such file or directory: 'git'")
             return None
 
-        stderr = io.StringIO()
-        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
-             mock.patch("sys.stderr", stderr):
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run:
             rc = scholar_sync.main([])
 
         self.assertEqual(rc, 1)
@@ -815,7 +949,7 @@ class TestGitFailureHandling(unittest.TestCase):
         steps_attempted = [c.args[0][:2] for c in mock_run.call_args_list]
         self.assertEqual(steps_attempted, [["git", "checkout"]])
 
-        message = stderr.getvalue()
+        message = self.stderr.getvalue()
         self.assertIn("git checkout -B", message)
         self.assertIn(scholar_sync.BRANCH_PREFIX, message)
         self.assertIn("No such file or directory", message)

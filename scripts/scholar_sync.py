@@ -113,6 +113,15 @@ def normalize_title(title):
 
 
 def site_titles(pub_dir):
+    """Read the titles of every publication under `pub_dir`.
+
+    A hand-edited entry can have malformed YAML front matter, or a `title`
+    that parsed but is not a string (a bare number, a YAML list, ...). Either
+    would otherwise reach __main__ as a bare traceback and kill the whole
+    monthly run. Skip just that one file instead, with a WARNING naming it:
+    the paper it describes drops out of `known` and could be re-reported as
+    new, but a spurious draft PR is recoverable and a crashed job is not.
+    """
     titles = set()
     for path in glob.glob(os.path.join(pub_dir, "*.md")):
         with io.open(path, encoding="utf-8") as fh:
@@ -120,9 +129,24 @@ def site_titles(pub_dir):
         match = FRONT_MATTER_RE.match(text)
         if not match:
             continue
-        data = yaml.safe_load(match.group(1)) or {}
-        if data.get("title"):
-            titles.add(normalize_title(data["title"]))
+        try:
+            data = yaml.safe_load(match.group(1)) or {}
+        except yaml.YAMLError as error:
+            sys.stderr.write(
+                "WARNING: skipping %s: could not parse YAML front matter (%s)\n"
+                % (path, error)
+            )
+            continue
+        title = data.get("title")
+        if not title:
+            continue
+        if not isinstance(title, str):
+            sys.stderr.write(
+                "WARNING: skipping %s: title is not a string (%r)\n"
+                % (path, title)
+            )
+            continue
+        titles.add(normalize_title(title))
     return titles
 
 
@@ -389,18 +413,29 @@ def main(argv=None):
 
     site_known = site_titles(PUB_DIR)
     if len(entries) < len(site_known):
-        # The Scholar profile can only ever be a superset of the site
-        # (modulo the small, known ignore list): every published paper was
-        # first seen on Scholar. A listing shorter than the site itself
-        # means the page was truncated or partially blocked -- a failed
-        # fetch, not evidence of "no new papers". This floor uses
+        # The Scholar profile is *usually* a superset of the site, but not
+        # always: the owner can add papers before Scholar indexes them
+        # (arXiv lag around a deadline), or delete duplicate entries from
+        # the Scholar profile, which lowers the count permanently. Neither
+        # is a fetch failure, so a listing merely shorter than the site is
+        # only worth a warning. A listing that falls below roughly half the
+        # site's publication count, though, is no longer explainable by
+        # either of those -- that is a truncated or partially blocked fetch,
+        # and must not be read as "no new papers". This floor uses
         # site_known alone (not the ignore/open-PR union below), since
         # those two sets can only shrink `new`, never explain away a
         # listing that is short of the site's own publication count.
-        raise FetchError(
-            "Scholar listed %d entries but the site has %d publications. "
-            "The listing is truncated or partially blocked."
-            % (len(entries), len(site_known))
+        floor = max(1, len(site_known) // 2)
+        if len(entries) < floor:
+            raise FetchError(
+                "Scholar listed %d entries but the site has %d publications. "
+                "The listing is truncated or partially blocked."
+                % (len(entries), len(site_known))
+            )
+        sys.stderr.write(
+            "WARNING: Scholar listed %d entries but the site has %d "
+            "publications. This is normal when the site has papers Scholar "
+            "has not indexed yet; continuing.\n" % (len(entries), len(site_known))
         )
 
     known = site_known | load_ignore(IGNORE_PATH) | open_pr_titles()
@@ -426,15 +461,29 @@ def main(argv=None):
         filename, content = render_stub(entry, detail)
         stubs.append((entry, filename, content))
 
-    if detail_failures == len(new):
-        # Every detail fetch failed. That is Scholar blocking or
-        # rate-limiting this run, not N papers that all happen to lack
-        # metadata -- raise instead of silently opening a PR of empty
-        # stubs (or, worse, exiting 0 on --dry-run).
+    if detail_failures == len(new) and len(new) >= 2:
+        # Every detail fetch failed, and there were at least two of them.
+        # That is Scholar blocking or rate-limiting this run, not N papers
+        # that all happen to lack metadata -- raise instead of silently
+        # opening a PR of empty stubs (or, worse, exiting 0 on --dry-run).
+        # A genuine block hits every request, and a block month almost
+        # never happens to have exactly one new paper, so the single-paper
+        # case below is handled separately instead of tripping this rule.
         raise FetchError(
             "All %d detail fetches failed; Scholar is likely blocking or "
             "rate-limiting this run rather than every entry genuinely "
             "lacking metadata." % detail_failures
+        )
+    if detail_failures == len(new) and len(new) == 1:
+        # Exactly one new paper, and its detail fetch failed -- the most
+        # common monthly shape, and a single ordinary HTTP 404 here is not
+        # evidence of a block. Degrade the same way the per-entry handler
+        # above already has (the stub was written with blank fields and its
+        # own TODO comments); just make the sparse draft visible instead of
+        # throwing the whole run away over one bad page.
+        sys.stderr.write(
+            "WARNING: the detail page for the only new paper could not be "
+            "read; the draft is therefore sparse (blank fields).\n"
         )
 
     created = []
