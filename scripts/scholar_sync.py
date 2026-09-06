@@ -272,6 +272,71 @@ def run(args):
     subprocess.check_call(args, cwd=REPO_ROOT)
 
 
+def run_git_sequence(branch, created):
+    """Run the checkout/add/commit/push/PR-create sequence one step at a
+    time. If a step raises `subprocess.CalledProcessError`, report which
+    step failed, the branch involved, and what state that leaves behind —
+    instead of letting a bare traceback reach the operator — and return
+    False. The failure is never swallowed: the caller still has to turn a
+    False return into a non-zero exit code.
+    """
+    steps = [
+        (
+            "git checkout -B %s" % branch,
+            ["git", "checkout", "-B", branch],
+            "No branch, commit, or push happened yet. The draft files "
+            "written under _publications/ are untracked on whatever "
+            "branch was checked out before this ran.",
+        ),
+        (
+            "git add _publications",
+            ["git", "add", "_publications"],
+            "Branch %r was created locally. The draft files are still "
+            "untracked in _publications/ on that branch." % branch,
+        ),
+        (
+            "git commit",
+            [
+                "git", "commit", "-m",
+                "Add draft entries for %d new publication(s)" % len(created),
+            ],
+            "Branch %r was created locally with the draft files staged "
+            "but not committed." % branch,
+        ),
+        (
+            "git push origin %s" % branch,
+            ["git", "push", "origin", branch],
+            "Branch %r exists locally with a commit, but nothing was "
+            "pushed. The commit only exists in this local checkout." % branch,
+        ),
+        (
+            "gh pr create",
+            [
+                "gh", "pr", "create",
+                "--base", "master",
+                "--head", branch,
+                "--title", "Add %d new publication(s) from Google Scholar" % len(created),
+                "--body", pr_body(created),
+            ],
+            "Branch %r was pushed to origin, but no pull request was "
+            "created. An orphan branch now exists on the remote with no "
+            "PR pointing at it." % branch,
+        ),
+    ]
+    for step, args, left_behind in steps:
+        try:
+            run(args)
+        except subprocess.CalledProcessError as error:
+            sys.stderr.write(
+                "GIT/GH STEP FAILED: %s (exit code %s)\n"
+                "Branch: %s\n"
+                "What this means: %s\n"
+                % (step, error.returncode, branch, left_behind)
+            )
+            return False
+    return True
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="report only; write nothing")
@@ -311,19 +376,8 @@ def main(argv=None):
         return 0
 
     branch = BRANCH_PREFIX + datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
-    run(["git", "checkout", "-B", branch])
-    run(["git", "add", "_publications"])
-    run(["git", "commit", "-m", "Add draft entries for %d new publication(s)" % len(created)])
-    run(["git", "push", "origin", branch])
-    run(
-        [
-            "gh", "pr", "create",
-            "--base", "master",
-            "--head", branch,
-            "--title", "Add %d new publication(s) from Google Scholar" % len(created),
-            "--body", pr_body(created),
-        ]
-    )
+    if not run_git_sequence(branch, created):
+        return 1
     return 0
 
 

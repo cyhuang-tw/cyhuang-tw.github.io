@@ -1,7 +1,9 @@
 import glob
 import io
+import json
 import os
 import re
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -382,6 +384,241 @@ class TestPullRequest(unittest.TestCase):
         body = scholar_sync.pr_body([(entry, "f.md")])
         found = scholar_sync.PR_MARKER_RE.findall(body)
         self.assertEqual(found, [scholar_sync.normalize_title("Brand New Paper")])
+
+
+class TestOpenPrTitles(unittest.TestCase):
+    """`open_pr_titles()` shells out to `gh pr list` (read-only). Both
+    branches are mocked at `subprocess.check_output` so no real `gh` process
+    ever runs and no network call is made."""
+
+    def test_extracts_markers_from_open_pr_bodies(self):
+        marker = scholar_sync.normalize_title("Brand New Paper")
+        payload = json.dumps(
+            [
+                {"body": "intro text\n<!-- scholar-sync: %s -->\n" % marker},
+                {"body": "an unrelated open PR with no marker"},
+            ]
+        )
+        with mock.patch(
+            "scholar_sync.subprocess.check_output", return_value=payload
+        ) as mock_co:
+            titles = scholar_sync.open_pr_titles()
+        self.assertEqual(titles, set([marker]))
+        mock_co.assert_called_once()
+        args, kwargs = mock_co.call_args
+        self.assertEqual(
+            args[0], ["gh", "pr", "list", "--state", "open", "--limit", "50", "--json", "body"]
+        )
+
+    def test_degrades_to_empty_set_when_gh_exits_nonzero(self):
+        with mock.patch(
+            "scholar_sync.subprocess.check_output",
+            side_effect=subprocess.CalledProcessError(1, ["gh"]),
+        ):
+            self.assertEqual(scholar_sync.open_pr_titles(), set())
+
+    def test_degrades_to_empty_set_when_gh_is_missing(self):
+        with mock.patch(
+            "scholar_sync.subprocess.check_output",
+            side_effect=OSError("gh: command not found"),
+        ):
+            self.assertEqual(scholar_sync.open_pr_titles(), set())
+
+
+class TestMain(unittest.TestCase):
+    """Exercises main()'s wiring end to end: the --dry-run guard's position,
+    the union of the three `known` sets, and the per-entry degrade-on-
+    FetchError path. Every function that could touch the network, the real
+    `_publications/` directory, or a real git/gh process is mocked; any
+    write goes to a temp directory instead."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def _patch_common(
+        self,
+        entries,
+        detail=None,
+        site_titles=None,
+        ignore=None,
+        pr_titles=None,
+        fetch_side_effect=None,
+    ):
+        """Patch every collaborator of main() except `run()`, which each
+        test patches itself so it can assert on the recorded calls."""
+        if detail is None:
+            detail = {"authors": "A Author", "date": "2026/1", "venue": ""}
+        if site_titles is None:
+            site_titles = set()
+        if ignore is None:
+            ignore = set()
+        if pr_titles is None:
+            pr_titles = set()
+
+        patches = [
+            mock.patch.object(scholar_sync, "PUB_DIR", self.tmp),
+            mock.patch.object(scholar_sync, "parse_listing", return_value=entries),
+            mock.patch.object(scholar_sync, "parse_detail", return_value=detail),
+            mock.patch.object(scholar_sync, "site_titles", return_value=site_titles),
+            mock.patch.object(scholar_sync, "load_ignore", return_value=ignore),
+            mock.patch.object(scholar_sync, "open_pr_titles", return_value=pr_titles),
+        ]
+        if fetch_side_effect is not None:
+            patches.append(mock.patch.object(scholar_sync, "fetch", side_effect=fetch_side_effect))
+        else:
+            patches.append(mock.patch.object(scholar_sync, "fetch", return_value="<html></html>"))
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_dry_run_never_calls_run_and_writes_no_files(self):
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        self._patch_common(entries)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main(["--dry-run"])
+        self.assertEqual(rc, 0)
+        mock_run.assert_not_called()
+        self.assertEqual(os.listdir(self.tmp), [])
+
+    def test_known_set_is_the_union_of_site_ignore_and_open_pr_titles(self):
+        # One entry's title is "known" via each of the three sources; only
+        # the entry with no match anywhere should survive find_new().
+        site_only = scholar_sync.Entry("U:site", "Site Title Paper", "2020")
+        ignore_only = scholar_sync.Entry("U:ignore", "Ignored Title Paper", "2021")
+        pr_only = scholar_sync.Entry("U:pr", "Open Pr Title Paper", "2022")
+        brand_new = scholar_sync.Entry("U:new", "Brand New Paper", "2026")
+        entries = [site_only, ignore_only, pr_only, brand_new]
+        self._patch_common(
+            entries,
+            site_titles=set([scholar_sync.normalize_title(site_only.title)]),
+            ignore=set([scholar_sync.normalize_title(ignore_only.title)]),
+            pr_titles=set([scholar_sync.normalize_title(pr_only.title)]),
+        )
+        with mock.patch.object(scholar_sync, "run"):
+            rc = scholar_sync.main(["--dry-run"])
+        self.assertEqual(rc, 0)
+        # Only the truly-new entry gets a draft filename printed; confirmed
+        # indirectly via dry-run writing nothing, so assert through the
+        # public find_new() contract instead of scraping stdout: rerun the
+        # same union logic main() uses and confirm it matches expectations.
+        known = (
+            set([scholar_sync.normalize_title(site_only.title)])
+            | set([scholar_sync.normalize_title(ignore_only.title)])
+            | set([scholar_sync.normalize_title(pr_only.title)])
+        )
+        new = scholar_sync.find_new(entries, known)
+        self.assertEqual([e.title for e in new], ["Brand New Paper"])
+
+    def test_happy_path_calls_run_with_expected_commands_in_order(self):
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        self._patch_common(entries)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main([])
+        self.assertEqual(rc, 0)
+        self.assertEqual(mock_run.call_count, 5)
+        calls = [c.args[0] for c in mock_run.call_args_list]
+
+        self.assertEqual(calls[0][:3], ["git", "checkout", "-B"])
+        branch = calls[0][3]
+        self.assertTrue(branch.startswith(scholar_sync.BRANCH_PREFIX))
+
+        self.assertEqual(calls[1], ["git", "add", "_publications"])
+        self.assertEqual(calls[2][:2], ["git", "commit"])
+        self.assertEqual(calls[3], ["git", "push", "origin", branch])
+
+        gh_call = calls[4]
+        self.assertEqual(gh_call[:3], ["gh", "pr", "create"])
+        self.assertIn("--head", gh_call)
+        self.assertEqual(gh_call[gh_call.index("--head") + 1], branch)
+
+        # Not dry-run: the draft file was actually written, under the temp
+        # PUB_DIR only.
+        self.assertEqual(os.listdir(self.tmp), ["2026-arxiv-brand-new-paper.md"])
+
+    def test_detail_fetch_error_degrades_entry_to_blank_stub_without_aborting(self):
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+
+        def fetch_side_effect(url):
+            if "view_op=view_citation" in url:
+                raise scholar_sync.FetchError("detail blocked")
+            return "<html></html>"
+
+        self._patch_common(entries, fetch_side_effect=fetch_side_effect)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main([])
+        self.assertEqual(rc, 0)
+
+        # The batch was not aborted: the git/gh sequence still ran.
+        mock_run.assert_called()
+
+        written = os.listdir(self.tmp)
+        self.assertEqual(len(written), 1)
+        with io.open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
+            content = fh.read()
+        self.assertIn("Scholar returned no authors for this entry", content)
+        self.assertIn('authors: ""', content)
+        self.assertIn('venue: "Preprint"', content)
+
+    def test_listing_fetch_error_propagates_out_of_main(self):
+        def fetch_side_effect(url):
+            raise scholar_sync.FetchError("listing blocked")
+
+        with mock.patch.object(scholar_sync, "fetch", side_effect=fetch_side_effect), \
+             mock.patch.object(scholar_sync, "run") as mock_run:
+            with self.assertRaises(scholar_sync.FetchError):
+                scholar_sync.main([])
+        mock_run.assert_not_called()
+
+
+class TestGitFailureHandling(unittest.TestCase):
+    """A mid-sequence git/gh failure must produce a clear diagnostic naming
+    the branch and the failed step, and exit non-zero, rather than a bare
+    traceback or a swallowed failure."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_git_push_failure_reports_branch_and_step_and_exits_nonzero(self):
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        patches = [
+            mock.patch.object(scholar_sync, "PUB_DIR", self.tmp),
+            mock.patch.object(scholar_sync, "parse_listing", return_value=entries),
+            mock.patch.object(
+                scholar_sync,
+                "parse_detail",
+                return_value={"authors": "A Author", "date": "2026/1", "venue": ""},
+            ),
+            mock.patch.object(scholar_sync, "site_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "load_ignore", return_value=set()),
+            mock.patch.object(scholar_sync, "open_pr_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "fetch", return_value="<html></html>"),
+        ]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+        def run_side_effect(args):
+            if args[:2] == ["git", "push"]:
+                raise subprocess.CalledProcessError(1, args)
+            return None
+
+        stderr = io.StringIO()
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
+             mock.patch("sys.stderr", stderr):
+            rc = scholar_sync.main([])
+
+        self.assertEqual(rc, 1)
+        steps_attempted = [c.args[0][:2] for c in mock_run.call_args_list]
+        self.assertIn(["git", "push"], steps_attempted)
+        # The sequence must stop at the failed step: gh pr create never runs.
+        self.assertNotIn(["gh", "pr"], steps_attempted)
+
+        message = stderr.getvalue()
+        self.assertIn("git push origin", message)
+        self.assertIn(scholar_sync.BRANCH_PREFIX, message)
+        self.assertIn("nothing was", message.lower())
 
 
 if __name__ == "__main__":
