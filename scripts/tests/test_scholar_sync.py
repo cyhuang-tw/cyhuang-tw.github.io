@@ -270,6 +270,29 @@ class TestStub(unittest.TestCase):
         self.assertEqual(scholar_sync.venue_slug(""), "arxiv")
         self.assertEqual(scholar_sync.venue_slug("Some Unlisted Venue"), "arxiv")
 
+    def test_venue_slug_taslp(self):
+        self.assertEqual(
+            scholar_sync.venue_slug("IEEE Transactions on Audio, Speech and Language Processing"),
+            "taslp",
+        )
+
+    def test_venue_slug_naacl_coling_icml(self):
+        self.assertEqual(
+            scholar_sync.venue_slug(
+                "Proceedings of the 2019 Conference of the North American Chapter of the "
+                "Association for Computational Linguistics: Human Language Technologies"
+            ),
+            "naacl",
+        )
+        self.assertEqual(
+            scholar_sync.venue_slug("Proceedings of the 28th International Conference on Computational Linguistics"),
+            "coling",
+        )
+        self.assertEqual(
+            scholar_sync.venue_slug("Proceedings of the 37th International Conference on Machine Learning"),
+            "icml",
+        )
+
     def test_title_slug_drops_stopwords(self):
         self.assertEqual(
             scholar_sync.title_slug("Causal tracing of audio-text fusion in large audio language models"),
@@ -280,6 +303,57 @@ class TestStub(unittest.TestCase):
         self.assertEqual(scholar_sync.parse_date("2025/4"), ("2025-04-01", 2))
         self.assertEqual(scholar_sync.parse_date("2025/4/24"), ("2025-04-24", 3))
         self.assertEqual(scholar_sync.parse_date("2026"), ("2026-01-01", 1))
+
+    def test_parse_date_non_numeric_component_falls_back_to_sentinel(self):
+        self.assertEqual(scholar_sync.parse_date("circa 2020"), ("1900-01-01", 1))
+
+    def test_parse_date_precision_clamped_to_three(self):
+        self.assertEqual(scholar_sync.parse_date("2026/1/2/3"), ("2026-01-02", 3))
+
+    def _front_matter(self, content):
+        match = re.match(r"^---\n(.*?)\n---\n", content, re.S)
+        self.assertIsNotNone(match, "no YAML front matter block found in:\n%s" % content)
+        return yaml.safe_load(match.group(1))
+
+    def test_render_stub_escapes_double_quote_in_title(self):
+        entry = scholar_sync.Entry("id:1", 'A "Novel" Approach', "2026")
+        detail = {"authors": "A Author", "date": "2026/1", "venue": ""}
+        _, content = scholar_sync.render_stub(entry, detail)
+        data = self._front_matter(content)
+        self.assertEqual(data["title"], 'A "Novel" Approach')
+
+    def test_render_stub_escapes_double_quote_in_authors(self):
+        entry = scholar_sync.Entry("id:2", "Some Title", "2026")
+        detail = {"authors": 'A "Nickname" Author, B Author', "date": "2026/1", "venue": ""}
+        _, content = scholar_sync.render_stub(entry, detail)
+        data = self._front_matter(content)
+        self.assertEqual(data["authors"], 'A "Nickname" Author, B Author')
+
+    def test_render_stub_escapes_double_quote_in_venue(self):
+        entry = scholar_sync.Entry("id:3", "Some Title", "2026")
+        detail = {"authors": "A Author", "date": "2026/1", "venue": 'Proceedings of "Special" Workshop'}
+        _, content = scholar_sync.render_stub(entry, detail)
+        data = self._front_matter(content)
+        self.assertEqual(data["venue"], 'Proceedings of "Special" Workshop')
+
+    def test_render_stub_escapes_backslash_before_quote(self):
+        # Escaping order matters: backslash must be escaped first, or a value
+        # ending in a backslash right before an embedded quote would produce
+        # a corrupt escape sequence instead of valid YAML.
+        entry = scholar_sync.Entry("id:4", r'Title with \ and "quote"', "2026")
+        detail = {"authors": "A Author", "date": "2026/1", "venue": ""}
+        _, content = scholar_sync.render_stub(entry, detail)
+        data = self._front_matter(content)
+        self.assertEqual(data["title"], 'Title with \\ and "quote"')
+
+    def test_render_stub_empty_authors_gets_distinct_todo(self):
+        entry = scholar_sync.Entry("id:5", "Some Title", "2026")
+        detail = {"authors": "", "date": "2026/1", "venue": ""}
+        _, content = scholar_sync.render_stub(entry, detail)
+        self.assertIn("Scholar returned no authors for this entry", content)
+        self.assertNotIn("verify the list is complete, Scholar truncates long ones", content)
+        data = self._front_matter(content)
+        self.assertEqual(data["authors"], "")
 
     def test_render_stub(self):
         entry = scholar_sync.Entry("1Xfc3ikAAAAJ:abc", "Causal tracing of audio-text fusion", "2026")

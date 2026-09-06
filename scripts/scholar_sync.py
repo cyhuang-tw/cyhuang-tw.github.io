@@ -124,12 +124,32 @@ VENUE_SLUGS = (
     ("spoken language technology", "slt"),
     ("automatic speech recognition and understanding", "asru"),
     ("neural information processing", "neurips"),
+    # NAACL needles must be checked before the ACL needle below: NAACL's full
+    # name ("... North American Chapter of the Association for Computational
+    # Linguistics ...") also contains the ACL substring, and the first
+    # matching tuple wins regardless of where the match falls in the string.
+    ("north american chapter", "naacl"),
+    ("naacl", "naacl"),
     ("association for computational linguistics", "acl"),
     ("empirical methods", "emnlp"),
+    ("transactions on audio, speech and language processing", "taslp"),
+    ("transactions on audio, speech, and language processing", "taslp"),
+    ("taslp", "taslp"),
+    ("international conference on computational linguistics", "coling"),
+    ("coling", "coling"),
+    ("international conference on machine learning", "icml"),
+    ("icml", "icml"),
 )
 STOPWORDS = frozenset(
     ["a", "an", "the", "of", "for", "and", "with", "on", "in", "to", "via", "towards", "toward"]
 )
+
+
+def yaml_dq_escape(value):
+    """Escape a third-party string for safe interpolation inside a YAML
+    double-quoted scalar ("..."). Backslash MUST be escaped before the quote,
+    or a value ending in a backslash would swallow the closing quote."""
+    return (value or "").replace("\\", "\\\\").replace('"', '\\"')
 
 
 def venue_slug(venue):
@@ -150,10 +170,17 @@ def parse_date(text):
     parts = [p for p in (text or "").split("/") if p.strip()]
     if not parts:
         return ("1900-01-01", 1)
-    year = int(parts[0])
-    month = int(parts[1]) if len(parts) > 1 else 1
-    day = int(parts[2]) if len(parts) > 2 else 1
-    return ("%04d-%02d-%02d" % (year, month, day), len(parts))
+    try:
+        year = int(parts[0])
+        month = int(parts[1]) if len(parts) > 1 else 1
+        day = int(parts[2]) if len(parts) > 2 else 1
+    except ValueError:
+        # Scholar dates are not always clean slash-separated digits (e.g. a
+        # scraped "circa 2020"). Degrade to the same sentinel used for empty
+        # input rather than let this escape as an uncaught exception.
+        return ("1900-01-01", 1)
+    precision = min(len(parts), 3)
+    return ("%04d-%02d-%02d" % (year, month, day), precision)
 
 
 def render_stub(entry, detail):
@@ -163,16 +190,21 @@ def render_stub(entry, detail):
     date_note = "" if precision == 3 else "  # TODO: Scholar gave %r; missing parts defaulted" % (
         detail.get("date") or entry.year
     )
+    authors = detail.get("authors") or ""
+    authors_todo = (
+        "verify the list is complete, Scholar truncates long ones"
+        if authors
+        else "Scholar returned no authors for this entry; fill in manually"
+    )
     lines = [
         "---",
-        'title: "%s"  # TODO: fix capitalisation, Scholar lowercases titles' % entry.title,
-        'authors: "%s"  # TODO: verify the list is complete, Scholar truncates long ones'
-        % (detail.get("authors") or ""),
+        'title: "%s"  # TODO: fix capitalisation, Scholar lowercases titles' % yaml_dq_escape(entry.title),
+        'authors: "%s"  # TODO: %s' % (yaml_dq_escape(authors), authors_todo),
         "collection: publications",
         "permalink: /publication/%s" % stem,
         "excerpt: ''",
         "date: %s%s" % (iso_date, date_note),
-        "venue: '%s'  # TODO: verify" % (venue or "Preprint"),
+        'venue: "%s"  # TODO: verify' % yaml_dq_escape(venue or "Preprint"),
         "paperurl: ''  # TODO: fill in",
         "# TODO: if you are a co-first author, add a co_first list here",
         "# scholar_id: %s" % entry.scholar_id,
