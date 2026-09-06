@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Check Google Scholar for publications that are not on the site yet."""
 
+import glob
+import io
+import os
 import re
 from collections import namedtuple
 
 import requests
+import yaml
 from bs4 import BeautifulSoup
 
 SCHOLAR_USER = "1Xfc3ikAAAAJ"
@@ -83,3 +87,30 @@ def parse_detail(html):
         if target and not detail[target]:
             detail[target] = value.get_text(strip=True)
     return detail
+
+
+def normalize_title(title):
+    return re.sub(r"[^a-z0-9]", "", (title or "").lower())
+
+
+def site_titles(pub_dir):
+    titles = set()
+    for path in glob.glob(os.path.join(pub_dir, "*.md")):
+        with io.open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        match = re.search(r'^title:\s*"(.*?)"\s*$', text, re.M)
+        if match:
+            titles.add(normalize_title(match.group(1)))
+    return titles
+
+
+def load_ignore(path):
+    if not os.path.exists(path):
+        return set()
+    with io.open(path, encoding="utf-8") as fh:
+        items = yaml.safe_load(fh) or []
+    return set(normalize_title(item["title"]) for item in items if item.get("title"))
+
+
+def find_new(entries, known):
+    return [e for e in entries if normalize_title(e.title) not in known]

@@ -1,0 +1,13 @@
+Investigating on Incorporating Pretrained and Learnable Speaker Representations for Multi-Speaker Multi-Style Text-to-Speech
+Utilizing Self-supervised Representations for MOS Prediction
+Defending Your Voice: Adversarial Attack on Voice Conversion
+How Far Are We from Robust Voice Conversion: A Survey
+Toward Degradation-Robust Voice Conversion
+Prompting and Adapter Tuning for Self-supervised Encoder-Decoder Speech Model
+Dynamic-SUPERB: Towards A Dynamic, Collaborative, and Comprehensive Instruction-Tuning Benchmark for Speech
+Fusion Of Discrete Representations and Self-Augmented Representations for Multilingual Automatic Speech Recognition
+DeSTA2.5-Audio: Toward General-Purpose Large Audio Language Model with Self-Generated Cross-Modal Alignment
+A Preliminary Exploration with GPT-4o Voice Mode
+SpeechCaps: Advancing Instruction-Based Universal Speech Models with Multi-Talker Speaking Style Captioning
+Dynamic-SUPERB Phase-2: A Collaboratively Expanding Benchmark for Measuring the Capabilities of Spoken Language Models with 180 Tasks
+Bagpiper: Solving Open-Ended Audio Tasks via Rich Captions

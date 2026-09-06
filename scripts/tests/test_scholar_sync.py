@@ -1,10 +1,13 @@
+import glob
 import io
 import os
+import re
 import sys
 import unittest
 from unittest import mock
 
 import requests
+import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -134,6 +137,124 @@ class TestFetch(unittest.TestCase):
             with self.assertRaises(scholar_sync.FetchError) as cm:
                 scholar_sync.fetch("https://scholar.google.com/citations?user=U")
             self.assertIn("Name or service not known", str(cm.exception))
+
+
+import shutil
+import tempfile
+
+
+class TestMatching(unittest.TestCase):
+    def test_normalize_ignores_case_and_punctuation(self):
+        self.assertEqual(
+            scholar_sync.normalize_title("Dynamic-SUPERB Phase-2: A Benchmark"),
+            scholar_sync.normalize_title("Dynamic-superb phase-2: a benchmark"),
+        )
+
+    def test_site_titles_reads_front_matter(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            with io.open(os.path.join(tmp, "a.md"), "w", encoding="utf-8") as fh:
+                fh.write('---\ntitle: "Defending Your Voice"\nvenue: x\n---\n')
+            titles = scholar_sync.site_titles(tmp)
+            self.assertEqual(titles, set([scholar_sync.normalize_title("Defending your voice")]))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_load_ignore_reads_titles(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmp, "ignore.yml")
+            with io.open(path, "w", encoding="utf-8") as fh:
+                fh.write('- title: "Some Old Paper"\n  reason: "not mine"\n')
+            self.assertEqual(
+                scholar_sync.load_ignore(path),
+                set([scholar_sync.normalize_title("some old paper")]),
+            )
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_load_ignore_missing_file_is_empty(self):
+        self.assertEqual(scholar_sync.load_ignore("/nonexistent/ignore.yml"), set())
+
+    def test_find_new_excludes_known(self):
+        entries = [
+            scholar_sync.Entry("a", "Known Paper", "2024"),
+            scholar_sync.Entry("b", "Brand New Paper", "2026"),
+        ]
+        known = set([scholar_sync.normalize_title("known paper")])
+        new = scholar_sync.find_new(entries, known)
+        self.assertEqual([e.title for e in new], ["Brand New Paper"])
+
+    def test_frozen_profile_against_frozen_site_titles(self):
+        # Ruling 1 override: the brief's test of the same name read the LIVE
+        # _publications/ directory and hard-coded "3 new papers". That count
+        # goes stale the moment the automation's own first PR merges new
+        # entries, permanently failing CI. Instead both sides are frozen
+        # fixtures: profile.html (16 Scholar rows) and site_titles.txt (today's
+        # 13 site titles, extracted once from _publications/*.md).
+        entries = scholar_sync.parse_listing(fixture("profile.html"))
+        with io.open(os.path.join(HERE, "fixtures", "site_titles.txt"), encoding="utf-8") as fh:
+            known = set(scholar_sync.normalize_title(line) for line in fh if line.strip())
+        new = scholar_sync.find_new(entries, known)
+        titles = sorted(e.title for e in new)
+        self.assertEqual(len(titles), 3)
+        self.assertTrue(any("Causal tracing" in t for t in titles))
+        self.assertTrue(any("PlanRAG-Audio" in t for t in titles))
+        self.assertTrue(any("cross-lingual" in t for t in titles))
+
+
+class TestPublicationAuthorIntegrity(unittest.TestCase):
+    """Guards a fragility in publication-authors.html left in place by design.
+
+    That include applies Liquid's `replace`, which matches substrings with no
+    word boundaries: a mistyped co_first name silently renders nothing, and a
+    name that happens to be a substring of a different co-author's name would
+    get wrapped by mistake. The include itself was verified byte-identical
+    and is not being touched; this test turns both failure modes into a loud,
+    diagnosable test failure instead.
+
+    Reads the LIVE _publications/ directory on purpose (unlike the frozen
+    test above): this property must keep holding as entries are added, so
+    freezing it would stop it from ever catching a real typo.
+    """
+
+    OWNER = "Chien-yu Huang"
+
+    def _front_matter(self, path):
+        with io.open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        self.assertIsNotNone(match, "%s: no YAML front matter block found" % path)
+        return yaml.safe_load(match.group(1)) or {}
+
+    def test_owner_and_co_first_names_are_exact_author_tokens(self):
+        repo = os.path.dirname(os.path.dirname(HERE))
+        pub_dir = os.path.join(repo, "_publications")
+        paths = sorted(glob.glob(os.path.join(pub_dir, "*.md")))
+        self.assertTrue(paths, "no publication files found in %s" % pub_dir)
+        for path in paths:
+            data = self._front_matter(path)
+            authors = data.get("authors") or ""
+            tokens = [token.strip() for token in authors.split(",")]
+            names = [self.OWNER] + list(data.get("co_first") or [])
+            for name in names:
+                matches = [token for token in tokens if token == name]
+                self.assertEqual(
+                    len(matches),
+                    1,
+                    "%s: expected exactly one author token equal to %r, found %d "
+                    "(tokens=%r)" % (path, name, len(matches), tokens),
+                )
+            for token in tokens:
+                if token in names:
+                    continue
+                for name in names:
+                    self.assertNotIn(
+                        name,
+                        token,
+                        "%s: author token %r unexpectedly contains %r as a "
+                        "substring" % (path, token, name),
+                    )
 
 
 if __name__ == "__main__":
