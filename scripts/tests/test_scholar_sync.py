@@ -483,7 +483,13 @@ class TestMain(unittest.TestCase):
 
     def test_known_set_is_the_union_of_site_ignore_and_open_pr_titles(self):
         # One entry's title is "known" via each of the three sources; only
-        # the entry with no match anywhere should survive find_new().
+        # the entry with no match anywhere should survive find_new(). This
+        # asserts on what main() itself actually wrote to disk, not on a
+        # `known` set the test recomputes itself — dropping any one term
+        # from main()'s union line (site_titles(...) | load_ignore(...) |
+        # open_pr_titles(...)) would let that source's "known" entry leak
+        # through find_new() and be written as an extra file, which the
+        # os.listdir assertion below would then catch.
         site_only = scholar_sync.Entry("U:site", "Site Title Paper", "2020")
         ignore_only = scholar_sync.Entry("U:ignore", "Ignored Title Paper", "2021")
         pr_only = scholar_sync.Entry("U:pr", "Open Pr Title Paper", "2022")
@@ -495,20 +501,13 @@ class TestMain(unittest.TestCase):
             ignore=set([scholar_sync.normalize_title(ignore_only.title)]),
             pr_titles=set([scholar_sync.normalize_title(pr_only.title)]),
         )
+        # Non-dry-run: `run` is mocked so no real git/gh process executes,
+        # but the write loop (and therefore the known-set filtering that
+        # gates it) runs for real.
         with mock.patch.object(scholar_sync, "run"):
-            rc = scholar_sync.main(["--dry-run"])
+            rc = scholar_sync.main([])
         self.assertEqual(rc, 0)
-        # Only the truly-new entry gets a draft filename printed; confirmed
-        # indirectly via dry-run writing nothing, so assert through the
-        # public find_new() contract instead of scraping stdout: rerun the
-        # same union logic main() uses and confirm it matches expectations.
-        known = (
-            set([scholar_sync.normalize_title(site_only.title)])
-            | set([scholar_sync.normalize_title(ignore_only.title)])
-            | set([scholar_sync.normalize_title(pr_only.title)])
-        )
-        new = scholar_sync.find_new(entries, known)
-        self.assertEqual([e.title for e in new], ["Brand New Paper"])
+        self.assertEqual(os.listdir(self.tmp), ["2026-arxiv-brand-new-paper.md"])
 
     def test_happy_path_calls_run_with_expected_commands_in_order(self):
         entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
@@ -619,6 +618,50 @@ class TestGitFailureHandling(unittest.TestCase):
         self.assertIn("git push origin", message)
         self.assertIn(scholar_sync.BRANCH_PREFIX, message)
         self.assertIn("nothing was", message.lower())
+
+    def test_git_binary_missing_reports_branch_and_step_and_exits_nonzero(self):
+        # OSError (FileNotFoundError is a subclass) is what subprocess raises
+        # when the executable itself is not on PATH -- a different failure
+        # mode than a CalledProcessError, and one that must produce the same
+        # kind of clear diagnostic rather than a bare traceback.
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        patches = [
+            mock.patch.object(scholar_sync, "PUB_DIR", self.tmp),
+            mock.patch.object(scholar_sync, "parse_listing", return_value=entries),
+            mock.patch.object(
+                scholar_sync,
+                "parse_detail",
+                return_value={"authors": "A Author", "date": "2026/1", "venue": ""},
+            ),
+            mock.patch.object(scholar_sync, "site_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "load_ignore", return_value=set()),
+            mock.patch.object(scholar_sync, "open_pr_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "fetch", return_value="<html></html>"),
+        ]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+        def run_side_effect(args):
+            if args[:2] == ["git", "checkout"]:
+                raise OSError("[Errno 2] No such file or directory: 'git'")
+            return None
+
+        stderr = io.StringIO()
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
+             mock.patch("sys.stderr", stderr):
+            rc = scholar_sync.main([])
+
+        self.assertEqual(rc, 1)
+        # The sequence must stop at the first (failed) step: nothing past
+        # "git checkout" is attempted.
+        steps_attempted = [c.args[0][:2] for c in mock_run.call_args_list]
+        self.assertEqual(steps_attempted, [["git", "checkout"]])
+
+        message = stderr.getvalue()
+        self.assertIn("git checkout -B", message)
+        self.assertIn(scholar_sync.BRANCH_PREFIX, message)
+        self.assertIn("No such file or directory", message)
 
 
 if __name__ == "__main__":

@@ -334,6 +334,18 @@ def run_git_sequence(branch, created):
                 % (step, error.returncode, branch, left_behind)
             )
             return False
+        except OSError as error:
+            # Raised (FileNotFoundError, a subclass, in the common case)
+            # when the `git` or `gh` executable itself is not on PATH.
+            # Without this, that escapes run_git_sequence entirely and
+            # produces a bare traceback instead of the diagnostic below.
+            sys.stderr.write(
+                "GIT/GH STEP FAILED: %s (%s)\n"
+                "Branch: %s\n"
+                "What this means: %s\n"
+                % (step, error, branch, left_behind)
+            )
+            return False
     return True
 
 
