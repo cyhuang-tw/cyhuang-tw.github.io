@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Check Google Scholar for publications that are not on the site yet."""
 
+import argparse
+import datetime
 import glob
 import io
+import json
 import os
 import re
+import subprocess
+import sys
+import time
 from collections import namedtuple
 
 import requests
@@ -212,3 +218,119 @@ def render_stub(entry, detail):
         "",
     ]
     return (stem + ".md", "\n".join(lines))
+
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUB_DIR = os.path.join(REPO_ROOT, "_publications")
+IGNORE_PATH = os.path.join(REPO_ROOT, "scripts", "scholar_ignore.yml")
+BRANCH_PREFIX = "scholar-update/"
+# 每次執行都用不同的分支名稱。如果重複使用同一個分支，
+# 第二次執行的 force push 會刪掉第一個 PR 裡面的草稿檔。
+PR_MARKER_RE = re.compile(r"<!-- scholar-sync: (.*?) -->")
+
+
+def open_pr_titles():
+    try:
+        raw = subprocess.check_output(
+            ["gh", "pr", "list", "--state", "open", "--limit", "50", "--json", "body"],
+            cwd=REPO_ROOT,
+            universal_newlines=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return set()
+    found = set()
+    for item in json.loads(raw):
+        found.update(PR_MARKER_RE.findall(item.get("body") or ""))
+    return found
+
+
+def pr_body(created):
+    lines = [
+        "Found on the Google Scholar profile but missing from `_publications/`.",
+        "",
+        "Each entry below is a draft. Check every `TODO` comment before merging.",
+        "",
+    ]
+    for entry, filename in created:
+        lines.append("### %s" % entry.title)
+        lines.append("")
+        lines.append("- File: `_publications/%s`" % filename)
+        lines.append("- Scholar year: %s" % (entry.year or "unknown"))
+        lines.append("- Check the title capitalisation. Scholar lowercases titles.")
+        lines.append("- Check the author list is complete, and add a `co_first` list if needed.")
+        lines.append("- Fill in `paperurl`, and add `repo` if there is code.")
+        lines.append("- Check the filename and `permalink` match how you name papers.")
+        lines.append("")
+        lines.append("<!-- scholar-sync: %s -->" % normalize_title(entry.title))
+        lines.append("")
+    lines.append("If a paper here should never appear on the site, add it to")
+    lines.append("`scripts/scholar_ignore.yml` and close this pull request.")
+    return "\n".join(lines)
+
+
+def run(args):
+    subprocess.check_call(args, cwd=REPO_ROOT)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true", help="report only; write nothing")
+    options = parser.parse_args(argv)
+
+    entries = parse_listing(fetch(PROFILE_URL.format(user=SCHOLAR_USER)))
+    print("Scholar entries: %d" % len(entries))
+
+    known = site_titles(PUB_DIR) | load_ignore(IGNORE_PATH) | open_pr_titles()
+    new = find_new(entries, known)
+    if not new:
+        print("No new publications.")
+        return 0
+    print("New publications: %d" % len(new))
+
+    created = []
+    for index, entry in enumerate(new):
+        if index:
+            time.sleep(2)
+        try:
+            detail = parse_detail(
+                fetch(DETAIL_URL.format(user=SCHOLAR_USER, cid=entry.scholar_id))
+            )
+        except FetchError as error:
+            print("  detail fetch failed for %r: %s" % (entry.title, error))
+            detail = {"authors": "", "date": entry.year, "venue": ""}
+        filename, content = render_stub(entry, detail)
+        print("  %s" % filename)
+        if not options.dry_run:
+            with io.open(os.path.join(PUB_DIR, filename), "w", encoding="utf-8") as fh:
+                fh.write(content)
+        created.append((entry, filename))
+
+    if options.dry_run:
+        print("\n--dry-run: nothing written.")
+        print(pr_body(created))
+        return 0
+
+    branch = BRANCH_PREFIX + datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
+    run(["git", "checkout", "-B", branch])
+    run(["git", "add", "_publications"])
+    run(["git", "commit", "-m", "Add draft entries for %d new publication(s)" % len(created)])
+    run(["git", "push", "origin", branch])
+    run(
+        [
+            "gh", "pr", "create",
+            "--base", "master",
+            "--head", branch,
+            "--title", "Add %d new publication(s) from Google Scholar" % len(created),
+            "--body", pr_body(created),
+        ]
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except FetchError as error:
+        sys.stderr.write("FETCH FAILED: %s\n" % error)
+        sys.stderr.write("This is NOT the same as 'no new papers'. No pull request was opened.\n")
+        sys.exit(1)

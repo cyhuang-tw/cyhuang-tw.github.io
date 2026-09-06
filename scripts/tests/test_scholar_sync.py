@@ -368,5 +368,21 @@ class TestStub(unittest.TestCase):
         self.assertNotIn("co_first:", content)
 
 
+class TestPullRequest(unittest.TestCase):
+    def test_pr_body_contains_machine_marker(self):
+        entry = scholar_sync.Entry("1Xfc3ikAAAAJ:abc", "Brand New Paper", "2026")
+        body = scholar_sync.pr_body([(entry, "2026-arxiv-brand-new-paper.md")])
+        marker = "<!-- scholar-sync: %s -->" % scholar_sync.normalize_title("Brand New Paper")
+        self.assertIn(marker, body)
+        self.assertIn("2026-arxiv-brand-new-paper.md", body)
+        self.assertIn("co_first", body)
+
+    def test_pr_marker_round_trips(self):
+        entry = scholar_sync.Entry("x", "Brand New Paper", "2026")
+        body = scholar_sync.pr_body([(entry, "f.md")])
+        found = scholar_sync.PR_MARKER_RE.findall(body)
+        self.assertEqual(found, [scholar_sync.normalize_title("Brand New Paper")])
+
+
 if __name__ == "__main__":
     unittest.main()
