@@ -1,6 +1,6 @@
 ---
 title: "Fusion Of Discrete Representations and Self-Augmented Representations for Multilingual Automatic Speech Recognition"
-authors: "Shih-Heng Wang, Jiatong Shi, <u>Chien-yu Huang</u>, Shinji Watanabe, Hung-yi Lee"
+authors: "Shih-Heng Wang, Jiatong Shi, Chien-yu Huang, Shinji Watanabe, Hung-yi Lee"
 collection: publications
 permalink: /publication/2024-slt-fusion-asr
 excerpt: ''

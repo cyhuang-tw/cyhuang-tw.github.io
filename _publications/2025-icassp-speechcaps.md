@@ -1,6 +1,6 @@
 ---
 title: "SpeechCaps: Advancing Instruction-Based Universal Speech Models with Multi-Talker Speaking Style Captioning"
-authors: "<u>Chien-yu Huang</u>, Min-Han Shih, Ke-Han Lu, Chi-Yuan Hsiao, Hung-yi Lee"
+authors: "Chien-yu Huang, Min-Han Shih, Ke-Han Lu, Chi-Yuan Hsiao, Hung-yi Lee"
 collection: publications
 permalink: /publication/2025-icassp-speechcaps
 excerpt: ''
