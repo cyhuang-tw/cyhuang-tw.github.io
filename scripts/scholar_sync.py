@@ -114,3 +114,69 @@ def load_ignore(path):
 
 def find_new(entries, known):
     return [e for e in entries if normalize_title(e.title) not in known]
+
+
+VENUE_SLUGS = (
+    ("icassp", "icassp"),
+    ("interspeech", "interspeech"),
+    ("learning representations", "iclr"),
+    ("iclr", "iclr"),
+    ("spoken language technology", "slt"),
+    ("automatic speech recognition and understanding", "asru"),
+    ("neural information processing", "neurips"),
+    ("association for computational linguistics", "acl"),
+    ("empirical methods", "emnlp"),
+)
+STOPWORDS = frozenset(
+    ["a", "an", "the", "of", "for", "and", "with", "on", "in", "to", "via", "towards", "toward"]
+)
+
+
+def venue_slug(venue):
+    lowered = (venue or "").lower()
+    for needle, slug in VENUE_SLUGS:
+        if needle in lowered:
+            return slug
+    return "arxiv"
+
+
+def title_slug(title, words=3):
+    cleaned = re.sub(r"[^a-z0-9\s-]", " ", (title or "").lower()).split()
+    kept = [w for w in cleaned if w not in STOPWORDS]
+    return "-".join(kept[:words]) or "untitled"
+
+
+def parse_date(text):
+    parts = [p for p in (text or "").split("/") if p.strip()]
+    if not parts:
+        return ("1900-01-01", 1)
+    year = int(parts[0])
+    month = int(parts[1]) if len(parts) > 1 else 1
+    day = int(parts[2]) if len(parts) > 2 else 1
+    return ("%04d-%02d-%02d" % (year, month, day), len(parts))
+
+
+def render_stub(entry, detail):
+    venue = detail.get("venue") or ""
+    stem = "%s-%s-%s" % (entry.year or "0000", venue_slug(venue), title_slug(entry.title))
+    iso_date, precision = parse_date(detail.get("date") or entry.year)
+    date_note = "" if precision == 3 else "  # TODO: Scholar gave %r; missing parts defaulted" % (
+        detail.get("date") or entry.year
+    )
+    lines = [
+        "---",
+        'title: "%s"  # TODO: fix capitalisation, Scholar lowercases titles' % entry.title,
+        'authors: "%s"  # TODO: verify the list is complete, Scholar truncates long ones'
+        % (detail.get("authors") or ""),
+        "collection: publications",
+        "permalink: /publication/%s" % stem,
+        "excerpt: ''",
+        "date: %s%s" % (iso_date, date_note),
+        "venue: '%s'  # TODO: verify" % (venue or "Preprint"),
+        "paperurl: ''  # TODO: fill in",
+        "# TODO: if you are a co-first author, add a co_first list here",
+        "# scholar_id: %s" % entry.scholar_id,
+        "---",
+        "",
+    ]
+    return (stem + ".md", "\n".join(lines))

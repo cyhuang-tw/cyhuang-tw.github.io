@@ -257,5 +257,42 @@ class TestPublicationAuthorIntegrity(unittest.TestCase):
                     )
 
 
+class TestStub(unittest.TestCase):
+    def test_venue_slug_known(self):
+        self.assertEqual(scholar_sync.venue_slug("ICASSP 2024 - IEEE Conference"), "icassp")
+        self.assertEqual(
+            scholar_sync.venue_slug("International Conference on Learning Representations 2025"),
+            "iclr",
+        )
+        self.assertEqual(scholar_sync.venue_slug("2021 IEEE Spoken Language Technology Workshop"), "slt")
+
+    def test_venue_slug_unknown_is_arxiv(self):
+        self.assertEqual(scholar_sync.venue_slug(""), "arxiv")
+        self.assertEqual(scholar_sync.venue_slug("Some Unlisted Venue"), "arxiv")
+
+    def test_title_slug_drops_stopwords(self):
+        self.assertEqual(
+            scholar_sync.title_slug("Causal tracing of audio-text fusion in large audio language models"),
+            "causal-tracing-audio-text",
+        )
+
+    def test_parse_date_precision(self):
+        self.assertEqual(scholar_sync.parse_date("2025/4"), ("2025-04-01", 2))
+        self.assertEqual(scholar_sync.parse_date("2025/4/24"), ("2025-04-24", 3))
+        self.assertEqual(scholar_sync.parse_date("2026"), ("2026-01-01", 1))
+
+    def test_render_stub(self):
+        entry = scholar_sync.Entry("1Xfc3ikAAAAJ:abc", "Causal tracing of audio-text fusion", "2026")
+        detail = {"authors": "A Author, Chien-yu Huang, B Author", "date": "2026/1", "venue": ""}
+        filename, content = scholar_sync.render_stub(entry, detail)
+        self.assertEqual(filename, "2026-arxiv-causal-tracing-audio-text.md")
+        self.assertIn('authors: "A Author, Chien-yu Huang, B Author"', content)
+        self.assertIn("permalink: /publication/2026-arxiv-causal-tracing-audio-text", content)
+        self.assertIn("date: 2026-01-01", content)
+        self.assertIn("# scholar_id: 1Xfc3ikAAAAJ:abc", content)
+        self.assertNotIn("<u>", content)
+        self.assertNotIn("co_first:", content)
+
+
 if __name__ == "__main__":
     unittest.main()
