@@ -6,6 +6,15 @@ on:
     - cron: "0 6 1 * *"
   workflow_dispatch:
 
+# `gh pr create` (invoked by scripts/scholar_sync.py) needs BOTH of these
+# permissions here AND the repository setting at:
+#   Settings -> Actions -> General -> Workflow permissions ->
+#   "Allow GitHub Actions to create and approve pull requests"
+# Without that repository setting, gh pr create fails under GITHUB_TOKEN
+# even though the permissions below are correct. This is the most likely
+# first-run failure, and it leaves a pushed branch with no PR pointing at
+# it -- see run_git_sequence()'s orphan-branch diagnostic for the recovery
+# command (git push origin --delete <branch>).
 permissions:
   contents: write
   pull-requests: write

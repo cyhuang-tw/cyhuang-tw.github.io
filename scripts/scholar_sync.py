@@ -31,6 +31,7 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 )
 BLOCK_MARKERS = (r"\bcaptcha\b", "unusual traffic", "not a robot")
+FRONT_MATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
 
 Entry = namedtuple("Entry", "scholar_id title year")
 
@@ -49,11 +50,22 @@ def fetch(url):
     return response.text
 
 
-def parse_listing(html):
+def check_not_blocked(html):
+    """Raise FetchError if `html` looks like a Scholar block/CAPTCHA page.
+
+    Shared by parse_listing and parse_detail: a blocked *detail* page (a
+    realistic 429 shape once the listing itself already succeeded) must
+    raise exactly like a blocked listing page does, instead of silently
+    parsing out empty fields.
+    """
     lowered = html.lower()
     for marker in BLOCK_MARKERS:
         if re.search(marker, lowered):
             raise FetchError("Scholar returned a block page (matched %r)" % marker)
+
+
+def parse_listing(html):
+    check_not_blocked(html)
     soup = BeautifulSoup(html, "html.parser")
     entries = []
     for row in soup.select("tr.gsc_a_tr"):
@@ -75,6 +87,7 @@ def parse_listing(html):
 
 
 def parse_detail(html):
+    check_not_blocked(html)
     soup = BeautifulSoup(html, "html.parser")
     detail = {"authors": "", "date": "", "venue": ""}
     keys = {
@@ -104,9 +117,12 @@ def site_titles(pub_dir):
     for path in glob.glob(os.path.join(pub_dir, "*.md")):
         with io.open(path, encoding="utf-8") as fh:
             text = fh.read()
-        match = re.search(r'^title:\s*"(.*?)"\s*$', text, re.M)
-        if match:
-            titles.add(normalize_title(match.group(1)))
+        match = FRONT_MATTER_RE.match(text)
+        if not match:
+            continue
+        data = yaml.safe_load(match.group(1)) or {}
+        if data.get("title"):
+            titles.add(normalize_title(data["title"]))
     return titles
 
 
@@ -236,7 +252,12 @@ def open_pr_titles():
             cwd=REPO_ROOT,
             universal_newlines=True,
         )
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError) as error:
+        sys.stderr.write(
+            "WARNING: could not list open pull requests via `gh` (%s); "
+            "continuing as if none are open. Papers that already have an "
+            "open PR may be re-drafted this run.\n" % error
+        )
         return set()
     found = set()
     for item in json.loads(raw):
@@ -280,6 +301,11 @@ def run_git_sequence(branch, created):
     False. The failure is never swallowed: the caller still has to turn a
     False return into a non-zero exit code.
     """
+    # Only the files this run actually generated, never the whole directory:
+    # `git add _publications` would sweep in any uncommitted local edits
+    # already sitting in _publications/ on whatever branch was checked out,
+    # which is exactly the state a local fallback run is likely to be in.
+    filenames = [os.path.join("_publications", filename) for _, filename in created]
     steps = [
         (
             "git checkout -B %s" % branch,
@@ -289,8 +315,8 @@ def run_git_sequence(branch, created):
             "branch was checked out before this ran.",
         ),
         (
-            "git add _publications",
-            ["git", "add", "_publications"],
+            "git add %s" % " ".join(filenames),
+            ["git", "add"] + filenames,
             "Branch %r was created locally. The draft files are still "
             "untracked in _publications/ on that branch." % branch,
         ),
@@ -320,7 +346,11 @@ def run_git_sequence(branch, created):
             ],
             "Branch %r was pushed to origin, but no pull request was "
             "created. An orphan branch now exists on the remote with no "
-            "PR pointing at it." % branch,
+            "PR pointing at it. open_pr_titles() only sees open PRs, so "
+            "leaving this branch in place means next month's run drafts "
+            "the same papers again on a second branch. To recover, delete "
+            "the orphan branch so the next run starts clean: "
+            "git push origin --delete %s" % (branch, branch),
         ),
     ]
     for step, args, left_behind in steps:
@@ -357,14 +387,31 @@ def main(argv=None):
     entries = parse_listing(fetch(PROFILE_URL.format(user=SCHOLAR_USER)))
     print("Scholar entries: %d" % len(entries))
 
-    known = site_titles(PUB_DIR) | load_ignore(IGNORE_PATH) | open_pr_titles()
+    site_known = site_titles(PUB_DIR)
+    if len(entries) < len(site_known):
+        # The Scholar profile can only ever be a superset of the site
+        # (modulo the small, known ignore list): every published paper was
+        # first seen on Scholar. A listing shorter than the site itself
+        # means the page was truncated or partially blocked -- a failed
+        # fetch, not evidence of "no new papers". This floor uses
+        # site_known alone (not the ignore/open-PR union below), since
+        # those two sets can only shrink `new`, never explain away a
+        # listing that is short of the site's own publication count.
+        raise FetchError(
+            "Scholar listed %d entries but the site has %d publications. "
+            "The listing is truncated or partially blocked."
+            % (len(entries), len(site_known))
+        )
+
+    known = site_known | load_ignore(IGNORE_PATH) | open_pr_titles()
     new = find_new(entries, known)
     if not new:
         print("No new publications.")
         return 0
     print("New publications: %d" % len(new))
 
-    created = []
+    stubs = []
+    detail_failures = 0
     for index, entry in enumerate(new):
         if index:
             time.sleep(2)
@@ -373,9 +420,25 @@ def main(argv=None):
                 fetch(DETAIL_URL.format(user=SCHOLAR_USER, cid=entry.scholar_id))
             )
         except FetchError as error:
-            print("  detail fetch failed for %r: %s" % (entry.title, error))
+            sys.stderr.write("  detail fetch failed for %r: %s\n" % (entry.title, error))
             detail = {"authors": "", "date": entry.year, "venue": ""}
+            detail_failures += 1
         filename, content = render_stub(entry, detail)
+        stubs.append((entry, filename, content))
+
+    if detail_failures == len(new):
+        # Every detail fetch failed. That is Scholar blocking or
+        # rate-limiting this run, not N papers that all happen to lack
+        # metadata -- raise instead of silently opening a PR of empty
+        # stubs (or, worse, exiting 0 on --dry-run).
+        raise FetchError(
+            "All %d detail fetches failed; Scholar is likely blocking or "
+            "rate-limiting this run rather than every entry genuinely "
+            "lacking metadata." % detail_failures
+        )
+
+    created = []
+    for entry, filename, content in stubs:
         print("  %s" % filename)
         if not options.dry_run:
             with io.open(os.path.join(PUB_DIR, filename), "w", encoding="utf-8") as fh:

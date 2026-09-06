@@ -162,6 +162,28 @@ class TestMatching(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
+    def test_site_titles_round_trips_through_render_stub(self):
+        # Finding 1 regression guard: render_stub's title line carries a
+        # trailing `# TODO` comment. A site_titles() that regexes for
+        # `^title:\s*"(.*?)"\s*$` cannot match past that comment, so a
+        # freshly generated draft is invisible to its own reader and
+        # find_new() would re-report the same paper next run.
+        entry = scholar_sync.Entry(
+            "1Xfc3ikAAAAJ:abc", "Causal tracing of audio-text fusion", "2026"
+        )
+        detail = {"authors": "Chien-yu Huang", "date": "2026/1", "venue": ""}
+        filename, content = scholar_sync.render_stub(entry, detail)
+
+        tmp = tempfile.mkdtemp()
+        try:
+            with io.open(os.path.join(tmp, filename), "w", encoding="utf-8") as fh:
+                fh.write(content)
+            known = scholar_sync.site_titles(tmp)
+            new = scholar_sync.find_new([entry], known)
+            self.assertEqual(new, [])
+        finally:
+            shutil.rmtree(tmp)
+
     def test_load_ignore_reads_titles(self):
         tmp = tempfile.mkdtemp()
         try:
@@ -411,18 +433,22 @@ class TestOpenPrTitles(unittest.TestCase):
         )
 
     def test_degrades_to_empty_set_when_gh_exits_nonzero(self):
+        stderr = io.StringIO()
         with mock.patch(
             "scholar_sync.subprocess.check_output",
             side_effect=subprocess.CalledProcessError(1, ["gh"]),
-        ):
+        ), mock.patch("sys.stderr", stderr):
             self.assertEqual(scholar_sync.open_pr_titles(), set())
+        self.assertIn("WARNING", stderr.getvalue())
 
     def test_degrades_to_empty_set_when_gh_is_missing(self):
+        stderr = io.StringIO()
         with mock.patch(
             "scholar_sync.subprocess.check_output",
             side_effect=OSError("gh: command not found"),
-        ):
+        ), mock.patch("sys.stderr", stderr):
             self.assertEqual(scholar_sync.open_pr_titles(), set())
+        self.assertIn("WARNING", stderr.getvalue())
 
 
 class TestMain(unittest.TestCase):
@@ -435,6 +461,12 @@ class TestMain(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        # A mutation run clocked this at 2.1s instead of ~0.06s before this
+        # was patched: main() sleeps 2 real seconds between every detail
+        # fetch after the first, and nothing here needs that delay.
+        sleep_patcher = mock.patch("scholar_sync.time.sleep")
+        sleep_patcher.start()
+        self.addCleanup(sleep_patcher.stop)
 
     def _patch_common(
         self,
@@ -522,7 +554,7 @@ class TestMain(unittest.TestCase):
         branch = calls[0][3]
         self.assertTrue(branch.startswith(scholar_sync.BRANCH_PREFIX))
 
-        self.assertEqual(calls[1], ["git", "add", "_publications"])
+        self.assertEqual(calls[1], ["git", "add", "_publications/2026-arxiv-brand-new-paper.md"])
         self.assertEqual(calls[2][:2], ["git", "commit"])
         self.assertEqual(calls[3], ["git", "push", "origin", branch])
 
@@ -535,11 +567,43 @@ class TestMain(unittest.TestCase):
         # PUB_DIR only.
         self.assertEqual(os.listdir(self.tmp), ["2026-arxiv-brand-new-paper.md"])
 
+    def test_git_add_stages_only_generated_filenames_not_whole_directory(self):
+        # Finding 5 regression guard: `git add _publications` would sweep in
+        # whatever uncommitted edits already sat in _publications/ on the
+        # branch checked out before this ran. Only the filenames this run
+        # itself generated may appear in the `git add` argv.
+        entries = [
+            scholar_sync.Entry("U:new1", "Brand New Paper", "2026"),
+            scholar_sync.Entry("U:new2", "Second New Paper Here", "2026"),
+        ]
+        self._patch_common(entries)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            rc = scholar_sync.main([])
+        self.assertEqual(rc, 0)
+
+        written = sorted(os.listdir(self.tmp))
+        self.assertEqual(len(written), 2)
+
+        add_call = mock_run.call_args_list[1].args[0]
+        self.assertEqual(add_call[:2], ["git", "add"])
+        self.assertNotIn("_publications", add_call)
+        self.assertEqual(
+            sorted(add_call[2:]),
+            sorted("_publications/%s" % name for name in written),
+        )
+
     def test_detail_fetch_error_degrades_entry_to_blank_stub_without_aborting(self):
-        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        # A MIX of one failing and one succeeding detail fetch: this must
+        # still degrade the failing entry to a blank stub and keep going,
+        # since not every detail fetch failed (contrast with the
+        # all-failed-is-a-block test below).
+        entries = [
+            scholar_sync.Entry("U:new1", "Brand New Paper", "2026"),
+            scholar_sync.Entry("U:new2", "Second New Paper Here", "2026"),
+        ]
 
         def fetch_side_effect(url):
-            if "view_op=view_citation" in url:
+            if "view_op=view_citation" in url and "U:new1" in url:
                 raise scholar_sync.FetchError("detail blocked")
             return "<html></html>"
 
@@ -552,12 +616,61 @@ class TestMain(unittest.TestCase):
         mock_run.assert_called()
 
         written = os.listdir(self.tmp)
-        self.assertEqual(len(written), 1)
-        with io.open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
-            content = fh.read()
-        self.assertIn("Scholar returned no authors for this entry", content)
-        self.assertIn('authors: ""', content)
-        self.assertIn('venue: "Preprint"', content)
+        self.assertEqual(len(written), 2)
+        with io.open(
+            os.path.join(self.tmp, "2026-arxiv-brand-new-paper.md"), encoding="utf-8"
+        ) as fh:
+            failed_content = fh.read()
+        self.assertIn("Scholar returned no authors for this entry", failed_content)
+        self.assertIn('authors: ""', failed_content)
+        self.assertIn('venue: "Preprint"', failed_content)
+
+        with io.open(
+            os.path.join(self.tmp, "2026-arxiv-second-new-paper.md"), encoding="utf-8"
+        ) as fh:
+            ok_content = fh.read()
+        self.assertIn('authors: "A Author"', ok_content)
+
+    def test_all_detail_fetches_failing_raises_fetch_error(self):
+        # Contrast with the mixed-failure test above: when EVERY detail
+        # fetch fails, that is Scholar blocking or rate-limiting this run
+        # rather than every entry genuinely lacking metadata, so main()
+        # must raise instead of quietly opening a PR of empty stubs.
+        entries = [
+            scholar_sync.Entry("U:new1", "Brand New Paper", "2026"),
+            scholar_sync.Entry("U:new2", "Second New Paper Here", "2026"),
+        ]
+
+        def fetch_side_effect(url):
+            if "view_op=view_citation" in url:
+                raise scholar_sync.FetchError("detail blocked")
+            return "<html></html>"
+
+        self._patch_common(entries, fetch_side_effect=fetch_side_effect)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            with self.assertRaises(scholar_sync.FetchError):
+                scholar_sync.main([])
+        mock_run.assert_not_called()
+
+    def test_listing_shorter_than_site_raises_fetch_error(self):
+        # Finding 3 regression guard: a degraded listing that still yields
+        # a couple of rows, all already on the site, must not read as quiet
+        # success. The profile can only ever be a superset of the site, so
+        # a listing shorter than site_titles() is itself proof of a failed
+        # or truncated fetch.
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        site_known = set(
+            [
+                scholar_sync.normalize_title("Existing Paper One"),
+                scholar_sync.normalize_title("Existing Paper Two"),
+            ]
+        )
+        self._patch_common(entries, site_titles=site_known)
+        with mock.patch.object(scholar_sync, "run") as mock_run:
+            with self.assertRaises(scholar_sync.FetchError):
+                scholar_sync.main([])
+        mock_run.assert_not_called()
+        self.assertEqual(os.listdir(self.tmp), [])
 
     def test_listing_fetch_error_propagates_out_of_main(self):
         def fetch_side_effect(url):
@@ -618,6 +731,50 @@ class TestGitFailureHandling(unittest.TestCase):
         self.assertIn("git push origin", message)
         self.assertIn(scholar_sync.BRANCH_PREFIX, message)
         self.assertIn("nothing was", message.lower())
+
+    def test_gh_pr_create_failure_reports_recovery_command(self):
+        # Finding 6 regression guard: when the branch is pushed but `gh pr
+        # create` fails (the most likely first-run failure, e.g. GitHub
+        # Actions not permitted to open PRs), the diagnostic must name the
+        # recovery command -- otherwise open_pr_titles() never sees this
+        # orphan branch's papers and a second branch+PR appears next month.
+        entries = [scholar_sync.Entry("U:new1", "Brand New Paper", "2026")]
+        patches = [
+            mock.patch.object(scholar_sync, "PUB_DIR", self.tmp),
+            mock.patch.object(scholar_sync, "parse_listing", return_value=entries),
+            mock.patch.object(
+                scholar_sync,
+                "parse_detail",
+                return_value={"authors": "A Author", "date": "2026/1", "venue": ""},
+            ),
+            mock.patch.object(scholar_sync, "site_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "load_ignore", return_value=set()),
+            mock.patch.object(scholar_sync, "open_pr_titles", return_value=set()),
+            mock.patch.object(scholar_sync, "fetch", return_value="<html></html>"),
+        ]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+        def run_side_effect(args):
+            if args[:2] == ["gh", "pr"]:
+                raise subprocess.CalledProcessError(1, args)
+            return None
+
+        stderr = io.StringIO()
+        with mock.patch.object(scholar_sync, "run", side_effect=run_side_effect) as mock_run, \
+             mock.patch("sys.stderr", stderr):
+            rc = scholar_sync.main([])
+
+        self.assertEqual(rc, 1)
+        steps_attempted = [c.args[0][:2] for c in mock_run.call_args_list]
+        self.assertIn(["gh", "pr"], steps_attempted)
+
+        message = stderr.getvalue()
+        self.assertIn("gh pr create", message)
+        self.assertIn(scholar_sync.BRANCH_PREFIX, message)
+        branch = [c.args[0] for c in mock_run.call_args_list][0][3]
+        self.assertIn("git push origin --delete %s" % branch, message)
 
     def test_git_binary_missing_reports_branch_and_step_and_exits_nonzero(self):
         # OSError (FileNotFoundError is a subclass) is what subprocess raises
