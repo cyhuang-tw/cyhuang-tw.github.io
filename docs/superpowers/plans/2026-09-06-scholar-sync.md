@@ -48,10 +48,13 @@ mkdir -p /tmp/scholar-baseline
 cp _site/index.html /tmp/scholar-baseline/index.html
 cp _site/publications/index.html /tmp/scholar-baseline/publications.html
 grep -c 'class="publication-authors"' /tmp/scholar-baseline/index.html
-grep -c '<sub>(co-first)</sub>' /tmp/scholar-baseline/index.html
+grep -o '<sub>(co-first)</sub>' /tmp/scholar-baseline/index.html | wc -l
 ```
 
 預期輸出：`13` 和 `3`。這兩個數字是遷移的基準。
+
+第二個指令要用 `grep -o | wc -l`，不可以用 `grep -c`。`grep -c` 數的是符合的行數，
+不是出現的次數。有一篇論文的同一行有兩個 co-first 標記，所以 `grep -c` 會回報 2。
 
 - [ ] **Step 2: 建立共用的 include**
 
