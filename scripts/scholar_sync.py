@@ -20,7 +20,7 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 )
-BLOCK_MARKERS = ("captcha", "unusual traffic", "not a robot")
+BLOCK_MARKERS = (r"\bcaptcha\b", "unusual traffic", "not a robot")
 
 Entry = namedtuple("Entry", "scholar_id title year")
 
@@ -30,7 +30,10 @@ class FetchError(Exception):
 
 
 def fetch(url):
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+    try:
+        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+    except requests.RequestException as exc:
+        raise FetchError("Scholar request failed: %s" % exc)
     if response.status_code != 200:
         raise FetchError("Scholar returned HTTP %s for %s" % (response.status_code, url))
     return response.text
@@ -39,7 +42,7 @@ def fetch(url):
 def parse_listing(html):
     lowered = html.lower()
     for marker in BLOCK_MARKERS:
-        if marker in lowered:
+        if re.search(marker, lowered):
             raise FetchError("Scholar returned a block page (matched %r)" % marker)
     soup = BeautifulSoup(html, "html.parser")
     entries = []
