@@ -140,6 +140,17 @@ class TestFetch(unittest.TestCase):
                 scholar_sync.fetch("https://scholar.google.com/citations?user=U")
             self.assertIn("Name or service not known", str(cm.exception))
 
+    def test_fetch_sends_browser_like_headers(self):
+        fake_response = mock.Mock(status_code=200, text="<html></html>")
+        with mock.patch("scholar_sync.requests.get", return_value=fake_response) as mock_get:
+            scholar_sync.fetch("https://scholar.google.com/citations?user=U")
+        headers = mock_get.call_args[1]["headers"]
+        self.assertIn("Mozilla/5.0", headers["User-Agent"])
+        self.assertEqual(headers["Accept-Language"], "en-US,en;q=0.9")
+        self.assertIn("text/html", headers["Accept"])
+        # br is deliberately excluded: requests cannot decode brotli here.
+        self.assertNotIn("br", headers["Accept-Encoding"])
+
 
 import shutil
 import tempfile
