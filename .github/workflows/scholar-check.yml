@@ -1,9 +1,15 @@
 name: Check Google Scholar
 
 on:
-  schedule:
-    # 每月 1 日 06:00 UTC
-    - cron: "0 6 1 * *"
+  # Scheduled runs are DISABLED. Google Scholar blocks GitHub Actions runner
+  # IPs: a manual run on 2026-09-07 returned HTTP 403 from Actions while the
+  # same request returned 200 from a residential IP. An unattended cron run
+  # would only ever fail (loudly, opening nothing) and email a failure notice
+  # every month. Run this manually instead, from a machine whose IP Scholar
+  # allows -- the Actions tab "Run workflow" button, or:
+  #   gh workflow run scholar-check.yml
+  # Note the runner IP is still blocked, so a manual dispatch here also 403s;
+  # the reliable path is `python3 scripts/scholar_sync.py` on that machine.
   workflow_dispatch:
 
 # `gh pr create` (invoked by scripts/scholar_sync.py) needs BOTH of these
