@@ -2,7 +2,7 @@
 title: "Causal Tracing of Audio-Text Fusion in Large Audio Language Models"
 authors: "Wei-Chih Chen, Chien-yu Huang, Hung-yi Lee"
 collection: publications
-permalink: /publication/2026-arxiv-causal-tracing-audio-text
+permalink: /publication/2026-interspeech-causal-tracing-audio-text
 excerpt: ''
 date: 2026-09-27
 venue: 'Interspeech'
