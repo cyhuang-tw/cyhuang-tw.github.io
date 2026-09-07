@@ -6,5 +6,5 @@ permalink: /publication/2026-arxiv-causal-tracing-audio-text
 excerpt: ''
 date: 2026-09-27
 venue: 'Interspeech'
-paperurl: 'https://arxiv.org/pdf/2603.13768'
+paperurl: 'https://arxiv.org/pdf/2603.13768.pdf'
 ---
