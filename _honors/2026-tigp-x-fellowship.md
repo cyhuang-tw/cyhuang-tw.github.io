@@ -5,4 +5,5 @@ permalink: /honors/2026-tigp-x-fellowship
 excerpt: ''
 date: 2026-06-01
 venue: 'Academia Sinica, Taiwan'
+link: 'https://tigpx.dia.sinica.edu.tw/'
 ---

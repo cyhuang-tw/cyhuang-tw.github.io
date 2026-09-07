@@ -27,7 +27,7 @@
     {% endif %}
 
     <h2 class="archive__item-title" itemprop="headline">
-        <p> {{ title }} </p>
+        <p> {% if post.link %}<a href="{{ post.link | escape }}">{{ title }}</a>{% else %}{{ title }}{% endif %} </p>
     </h2>
 
     {% if post.date %}
