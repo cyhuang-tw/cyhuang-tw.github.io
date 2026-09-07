@@ -35,10 +35,8 @@
     </div>
     {% if post.paperurl or post.repo %}
     <div class="publication-links">
-      <font size="3">
-        {% if post.paperurl %}[<a href="{{ post.paperurl }}">paper</a>]{% endif %}
-        {% if post.repo %} [<a href="{{ post.repo }}">code</a>]{% endif %}
-      </font>
+      {% if post.paperurl %}<a class="pub-link" href="{{ post.paperurl }}"><i class="fas fa-file-pdf" aria-hidden="true"></i> Paper</a>{% endif %}
+      {% if post.repo %}<a class="pub-link" href="{{ post.repo }}"><i class="fab fa-github" aria-hidden="true"></i> Code</a>{% endif %}
     </div>
     {% endif %}
     </li>
