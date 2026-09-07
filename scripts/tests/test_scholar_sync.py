@@ -8,7 +8,6 @@ import sys
 import unittest
 from unittest import mock
 
-import requests
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -115,41 +114,61 @@ class TestParseDetail(unittest.TestCase):
 
 
 class TestFetch(unittest.TestCase):
+    def _proc(self, stdout="", stderr="", returncode=0):
+        return mock.Mock(stdout=stdout, stderr=stderr, returncode=returncode)
+
+    def test_returns_body_on_http_200(self):
+        # curl writes the body, then "\n" + the status code (from -w).
+        proc = self._proc(stdout="<html>the page</html>\n200")
+        with mock.patch("scholar_sync.subprocess.run", return_value=proc):
+            body = scholar_sync.fetch("https://scholar.google.com/citations?user=U")
+        self.assertEqual(body, "<html>the page</html>")
+
     def test_non_200_status_raises_fetch_error(self):
-        fake_response = mock.Mock(status_code=404, text="Not Found")
-        with mock.patch("scholar_sync.requests.get", return_value=fake_response) as mock_get:
-            with self.assertRaises(scholar_sync.FetchError):
+        proc = self._proc(stdout="Too Many Requests\n429")
+        with mock.patch("scholar_sync.subprocess.run", return_value=proc):
+            with self.assertRaises(scholar_sync.FetchError) as cm:
                 scholar_sync.fetch("https://scholar.google.com/citations?user=U")
-            mock_get.assert_called_once()
+            self.assertIn("429", str(cm.exception))
+
+    def test_curl_nonzero_exit_is_wrapped_as_fetch_error(self):
+        proc = self._proc(stdout="", stderr="curl: (6) Could not resolve host", returncode=6)
+        with mock.patch("scholar_sync.subprocess.run", return_value=proc):
+            with self.assertRaises(scholar_sync.FetchError) as cm:
+                scholar_sync.fetch("https://scholar.google.com/citations?user=U")
+            self.assertIn("Could not resolve host", str(cm.exception))
 
     def test_timeout_is_wrapped_as_fetch_error(self):
         with mock.patch(
-            "scholar_sync.requests.get",
-            side_effect=requests.exceptions.Timeout("Read timed out."),
+            "scholar_sync.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="curl", timeout=90),
         ):
             with self.assertRaises(scholar_sync.FetchError) as cm:
                 scholar_sync.fetch("https://scholar.google.com/citations?user=U")
-            self.assertIn("Read timed out.", str(cm.exception))
+            self.assertIn("timed out", str(cm.exception))
 
-    def test_connection_error_is_wrapped_as_fetch_error(self):
+    def test_missing_curl_binary_is_wrapped_as_fetch_error(self):
         with mock.patch(
-            "scholar_sync.requests.get",
-            side_effect=requests.exceptions.ConnectionError("Name or service not known"),
+            "scholar_sync.subprocess.run",
+            side_effect=OSError("[Errno 2] No such file or directory: 'curl'"),
         ):
             with self.assertRaises(scholar_sync.FetchError) as cm:
                 scholar_sync.fetch("https://scholar.google.com/citations?user=U")
-            self.assertIn("Name or service not known", str(cm.exception))
+            self.assertIn("curl", str(cm.exception))
 
     def test_fetch_sends_browser_like_headers(self):
-        fake_response = mock.Mock(status_code=200, text="<html></html>")
-        with mock.patch("scholar_sync.requests.get", return_value=fake_response) as mock_get:
+        proc = self._proc(stdout="<html></html>\n200")
+        with mock.patch("scholar_sync.subprocess.run", return_value=proc) as mock_run:
             scholar_sync.fetch("https://scholar.google.com/citations?user=U")
-        headers = mock_get.call_args[1]["headers"]
-        self.assertIn("Mozilla/5.0", headers["User-Agent"])
-        self.assertEqual(headers["Accept-Language"], "en-US,en;q=0.9")
-        self.assertIn("text/html", headers["Accept"])
-        # br is deliberately excluded: requests cannot decode brotli here.
-        self.assertNotIn("br", headers["Accept-Encoding"])
+        argv = mock_run.call_args[0][0]
+        joined = " ".join(argv)
+        self.assertEqual(argv[0], "curl")
+        self.assertIn("--compressed", argv)
+        self.assertIn("User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36", argv)
+        self.assertIn("Accept-Language: en-US,en;q=0.9", argv)
+        # --compressed manages encoding; no hand-set Accept-Encoding header.
+        self.assertNotIn("Accept-Encoding", joined)
 
 
 import shutil
