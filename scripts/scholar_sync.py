@@ -13,7 +13,6 @@ import sys
 import time
 from collections import namedtuple
 
-import requests
 import yaml
 from bs4 import BeautifulSoup
 
@@ -60,14 +59,51 @@ class FetchError(Exception):
     """Raised when Scholar cannot be read. Never treat this as 'no new papers'."""
 
 
+def _curl_command(url):
+    """Build the curl argv that fetches `url` with browser-like headers."""
+    cmd = ["curl", "-sS", "--compressed", "--max-time", "60"]
+    for name, value in BROWSER_HEADERS.items():
+        # --compressed manages Accept-Encoding; setting it by hand as well
+        # can leave curl returning a body it did not decompress.
+        if name.lower() == "accept-encoding":
+            continue
+        cmd.extend(["-H", "%s: %s" % (name, value)])
+    # Append the HTTP status after the body, separated by a newline, so we
+    # can tell 200 from 429/403 -- curl exits 0 on an HTTP error unless asked.
+    cmd.extend(["-w", "\n%{http_code}", url])
+    return cmd
+
+
 def fetch(url):
+    """Fetch `url` through the system curl, not the requests library.
+
+    Scholar fingerprints the TLS/HTTP client below the header layer: from
+    one residential IP, at one moment, with identical browser headers, curl
+    receives HTTP 200 while `requests` receives 429. curl presents the
+    fingerprint Scholar accepts. This tool runs locally (the Actions runner
+    IP is blocked outright), where curl is always present.
+    """
     try:
-        response = requests.get(url, headers=BROWSER_HEADERS, timeout=30)
-    except requests.RequestException as exc:
-        raise FetchError("Scholar request failed: %s" % exc)
-    if response.status_code != 200:
-        raise FetchError("Scholar returned HTTP %s for %s" % (response.status_code, url))
-    return response.text
+        proc = subprocess.run(
+            _curl_command(url),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=90,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise FetchError("curl timed out fetching %s: %s" % (url, exc))
+    except OSError as exc:
+        raise FetchError("could not run curl (is it installed?): %s" % exc)
+    if proc.returncode != 0:
+        raise FetchError(
+            "curl exited %s for %s: %s"
+            % (proc.returncode, url, (proc.stderr or "").strip())
+        )
+    body, _, status = proc.stdout.rpartition("\n")
+    if status.strip() != "200":
+        raise FetchError("Scholar returned HTTP %s for %s" % (status.strip(), url))
+    return body
 
 
 def check_not_blocked(html):
