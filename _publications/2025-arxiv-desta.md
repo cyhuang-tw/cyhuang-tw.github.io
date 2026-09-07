@@ -7,4 +7,5 @@ excerpt: ''
 date: 2025-07-03
 venue: 'Preprint'
 paperurl: 'https://arxiv.org/pdf/2507.02768.pdf'
+repo: https://github.com/kehanlu/DeSTA2.5-Audio
 ---

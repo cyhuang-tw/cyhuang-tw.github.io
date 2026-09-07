@@ -7,4 +7,5 @@ excerpt: ''
 date: 2025-04-06
 venue: 'IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)'
 paperurl: 'https://arxiv.org/pdf/2408.13891.pdf'
+repo: https://github.com/cyhuang-tw/speechcaps
 ---
