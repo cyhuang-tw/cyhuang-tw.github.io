@@ -16,11 +16,18 @@ I am a second-year Ph.D. student at Language Technologies Institute, Carnegie Me
 
 ## Publications {#publications}
 
+<p class="pub-scholar-link"><a href="{{ site.author.googlescholar }}">See all publications on Google Scholar &rarr;</a></p>
+
+{% assign pubs = site.publications | sort: "date" | reverse %}
+{% assign pub_years = pubs | group_by_exp: "post", "post.date | date: '%Y'" %}
+{% for year in pub_years %}
+<h3 class="pub-year">{{ year.name }}</h3>
 <ul>
-{% for post in site.publications reversed %}
+{% for post in year.items %}
   {% include archive-single-publication-cv.html %}
 {% endfor %}
 </ul>
+{% endfor %}
 
 ## Honors {#honors}
 

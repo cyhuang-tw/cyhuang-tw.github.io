@@ -71,10 +71,30 @@
 .publication-venue {
   margin: 0.1em 0;
   line-height: 1.3;
+  font-size: $type-size-5; /* replaces the legacy <font size="3"> */
+}
+
+.pub-scholar-link {
+  margin: 0 0 0.5em;
+  font-size: $type-size-6;
+}
+
+.honor-meta {
+  font-size: $type-size-5; /* replaces the legacy <font size="3"> */
+}
+
+.pub-year {
+  margin: 1.3em 0 0.5em;
+  padding-bottom: 0.15em;
+  font-size: $type-size-5;
+  font-weight: bold;
+  color: mix(#fff, $gray, 25%);
+  border-bottom: 1px solid $border-color;
 }
 
 .publication-links {
-  margin: 0.4em 0 0.1em;
+  /* bottom margin gives breathing room before the next entry */
+  margin: 0.4em 0 0.9em;
 
   .pub-link {
     display: inline-block;
