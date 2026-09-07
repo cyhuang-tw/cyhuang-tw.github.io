@@ -12,9 +12,8 @@
   {% assign title = post.title %}
 {% endif %}
 
-<div class="{{ include.type | default: "list" }}__item">
+<li class="{{ include.type | default: "list" }}__item">
   <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-    <li>
     {% if include.type == "grid" and teaser %}
       <div class="archive__item-teaser">
         <img src=
@@ -39,6 +38,5 @@
       {% if post.repo %}<a class="pub-link" href="{{ post.repo }}"><i class="fab fa-github" aria-hidden="true"></i> Code</a>{% endif %}
     </div>
     {% endif %}
-    </li>
  </article>
-</div>
+</li>
