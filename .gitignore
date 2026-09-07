@@ -1,4 +1,6 @@
 _site/
 .DS_Store
 Gemfile.lock
+__pycache__/
+*.pyc
 

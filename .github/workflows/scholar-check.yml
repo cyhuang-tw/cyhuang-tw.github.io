@@ -1,0 +1,48 @@
+name: Check Google Scholar
+
+on:
+  schedule:
+    # 每月 1 日 06:00 UTC
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+# `gh pr create` (invoked by scripts/scholar_sync.py) needs BOTH of these
+# permissions here AND the repository setting at:
+#   Settings -> Actions -> General -> Workflow permissions ->
+#   "Allow GitHub Actions to create and approve pull requests"
+# Without that repository setting, gh pr create fails under GITHUB_TOKEN
+# even though the permissions below are correct. This is the most likely
+# first-run failure, and it leaves a pushed branch with no PR pointing at
+# it -- see run_git_sequence()'s orphan-branch diagnostic for the recovery
+# command (git push origin --delete <branch>).
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s scripts/tests -v
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check Scholar and open a pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/scholar_sync.py

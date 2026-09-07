@@ -1,6 +1,6 @@
 ---
 title: "Prompting and Adapter Tuning for Self-supervised Encoder-Decoder Speech Model"
-authors: "Kai-Wei Chang, Ming-Hsin Chen, Yun-Ping Lin, Jing Neng Hsu, Paul Huang, <u>Chien-yu Huang</u>, Shang-Wen Li, Hung-yi Lee"
+authors: "Kai-Wei Chang, Ming-Hsin Chen, Yun-Ping Lin, Jing Neng Hsu, Paul Huang, Chien-yu Huang, Shang-Wen Li, Hung-yi Lee"
 collection: publications
 permalink: /publication/2023-asru-prompt-wav2seq
 excerpt: ''

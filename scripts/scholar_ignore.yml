@@ -1,0 +1,6 @@
+# Papers on the Google Scholar profile that should NOT appear on the site.
+# Matching uses the normalized title, not scholar_id. The scholar_id is
+# recorded for reference only; Scholar reassigns it when the list reorders.
+- title: "Improving cross-lingual reading comprehension with self-training"
+  scholar_id: "1Xfc3ikAAAAJ:9yKSN-GCB0IC"
+  reason: "Not a primary contribution; deliberately left off the site."

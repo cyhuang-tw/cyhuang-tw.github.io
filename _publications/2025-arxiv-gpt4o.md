@@ -1,6 +1,6 @@
 ---
 title: "A Preliminary Exploration with GPT-4o Voice Mode"
-authors: "Yu-Xiang Lin, Chih-Kai Yang, Wei-Chih Chen, Chen-An Li, <u>Chien-yu Huang</u>, Xuanjun Chen, Hung-yi Lee"
+authors: "Yu-Xiang Lin, Chih-Kai Yang, Wei-Chih Chen, Chen-An Li, Chien-yu Huang, Xuanjun Chen, Hung-yi Lee"
 collection: publications
 permalink: /publication/2025-arxiv-gpt4o
 excerpt: ''

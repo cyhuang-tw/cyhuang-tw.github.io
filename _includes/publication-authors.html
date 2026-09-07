@@ -1,0 +1,10 @@
+{%- assign rendered = include.post.authors -%}
+{%- if include.post.co_first -%}
+{%- for n in include.post.co_first -%}
+{%- capture marked -%}{{ n }}<sub>(co-first)</sub>{%- endcapture -%}
+{%- assign rendered = rendered | replace: n, marked -%}
+{%- endfor -%}
+{%- endif -%}
+{%- capture me -%}<u>{{ site.author.name }}</u>{%- endcapture -%}
+{%- assign rendered = rendered | replace: site.author.name, me -%}
+{{- rendered -}}
