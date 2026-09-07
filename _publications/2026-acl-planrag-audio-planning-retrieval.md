@@ -6,5 +6,5 @@ permalink: /publication/2026-acl-planrag-audio-planning-retrieval
 excerpt: ''
 date: 2026-07-02
 venue: 'Findings of the Association for Computational Linguistics: ACL'
-paperurl: 'https://arxiv.org/pdf/2605.20414'
+paperurl: 'https://arxiv.org/pdf/2605.20414.pdf'
 ---
