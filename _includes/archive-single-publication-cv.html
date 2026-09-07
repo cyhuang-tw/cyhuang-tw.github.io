@@ -12,9 +12,8 @@
   {% assign title = post.title %}
 {% endif %}
 
-<div class="{{ include.type | default: "list" }}__item">
+<li class="{{ include.type | default: "list" }}__item">
   <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-    <li>
     {% if include.type == "grid" and teaser %}
       <div class="archive__item-teaser">
         <img src=
@@ -29,9 +28,9 @@
     <h3 class="archive__item-title" itemprop="headline">
         {{ title }}
     </h3>
-    <div class="publication-authors"><font size="3">{% include publication-authors.html post=post %}</font></div>
+    <div class="publication-authors">{% include publication-authors.html post=post %}</div>
     <div class="publication-venue">
-      <font size="3"><i>{{ post.venue }}</i> {{ post.date | default: "1900-01-01" | date: "%Y" }}</font>
+      <i>{{ post.venue }}</i> {{ post.date | default: "1900-01-01" | date: "%Y" }}
     </div>
     {% if post.paperurl or post.repo %}
     <div class="publication-links">
@@ -39,6 +38,5 @@
       {% if post.repo %}<a class="pub-link" href="{{ post.repo }}"><i class="fab fa-github" aria-hidden="true"></i> Code</a>{% endif %}
     </div>
     {% endif %}
-    </li>
  </article>
-</div>
+</li>
