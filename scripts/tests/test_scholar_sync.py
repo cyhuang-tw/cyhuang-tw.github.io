@@ -245,6 +245,34 @@ class TestMatching(unittest.TestCase):
     def test_load_ignore_missing_file_is_empty(self):
         self.assertEqual(scholar_sync.load_ignore("/nonexistent/ignore.yml"), set())
 
+    def test_load_ignore_malformed_yaml_warns_and_is_empty(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmp, "ignore.yml")
+            with io.open(path, "w", encoding="utf-8") as fh:
+                fh.write('- title: "Unterminated\n  reason: broken: : :\n')
+            err = io.StringIO()
+            with mock.patch.object(sys, "stderr", err):
+                result = scholar_sync.load_ignore(path)
+            self.assertEqual(result, set())
+            self.assertIn("WARNING", err.getvalue())
+            self.assertIn(path, err.getvalue())
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_load_ignore_non_dict_items_are_skipped(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmp, "ignore.yml")
+            with io.open(path, "w", encoding="utf-8") as fh:
+                fh.write('- "just a bare string"\n- title: "Real Entry"\n')
+            self.assertEqual(
+                scholar_sync.load_ignore(path),
+                set([scholar_sync.normalize_title("real entry")]),
+            )
+        finally:
+            shutil.rmtree(tmp)
+
     def test_find_new_excludes_known(self):
         entries = [
             scholar_sync.Entry("a", "Known Paper", "2024"),

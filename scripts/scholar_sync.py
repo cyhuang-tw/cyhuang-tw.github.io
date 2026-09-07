@@ -151,11 +151,30 @@ def site_titles(pub_dir):
 
 
 def load_ignore(path):
+    """Read the normalized titles listed in the hand-edited ignore file.
+
+    Like `site_titles()`, this reads a file a human edits by hand, so a
+    malformed edit must not crash the monthly run. Treat an unparseable
+    ignore file as an empty ignore set, with a WARNING naming it: the worst
+    case is that a paper the owner meant to suppress gets drafted once, which
+    is recoverable, whereas a crashed job is not.
+    """
     if not os.path.exists(path):
         return set()
     with io.open(path, encoding="utf-8") as fh:
-        items = yaml.safe_load(fh) or []
-    return set(normalize_title(item["title"]) for item in items if item.get("title"))
+        try:
+            items = yaml.safe_load(fh) or []
+        except yaml.YAMLError as error:
+            sys.stderr.write(
+                "WARNING: could not parse %s (%s); treating it as empty\n"
+                % (path, error)
+            )
+            return set()
+    titles = set()
+    for item in items:
+        if isinstance(item, dict) and item.get("title"):
+            titles.add(normalize_title(item["title"]))
+    return titles
 
 
 def find_new(entries, known):
