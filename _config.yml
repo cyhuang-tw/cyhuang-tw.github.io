@@ -81,6 +81,7 @@ analytics:
 # Site Author
 author:
   name             : "Chien-yu Huang"
+  name_zh          : "黃健祐"
   avatar           : "profile.png"
   bio              : "Ph.D. student at Carnegie Mellon University"
   location         : "Pittsburgh, PA, USA"
