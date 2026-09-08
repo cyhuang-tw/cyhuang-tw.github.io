@@ -79,8 +79,21 @@
   font-size: $type-size-6;
 }
 
-.honor-meta {
-  font-size: $type-size-5; /* replaces the legacy <font size="3"> */
+/* Honor entry: title on the left, org + year (italic) on the right */
+.honor-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15em 1.5em;
+  margin-bottom: 0.6em;
+  font-size: $type-size-5;
+  line-height: 1.4;
+}
+
+.honor-org {
+  margin-left: auto;
+  text-align: right;
 }
 
 .pub-year {

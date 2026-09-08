@@ -1,11 +1,5 @@
 {% include base_path %}
 
-{% if post.header.teaser %}
-  {% capture teaser %}{{ post.header.teaser }}{% endcapture %}
-{% else %}
-  {% assign teaser = site.teaser %}
-{% endif %}
-
 {% if post.id %}
   {% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
 {% else %}
@@ -13,23 +7,8 @@
 {% endif %}
 
 <li class="{{ include.type | default: "list" }}__item">
-  <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-    {% if include.type == "grid" and teaser %}
-      <div class="archive__item-teaser">
-        <img src=
-          {% if teaser contains "://" %}
-            "{{ teaser }}"
-          {% else %}
-            "{{ teaser | prepend: "/images/" | prepend: base_path }}"
-          {% endif %}
-          alt="">
-      </div>
-    {% endif %}
-    <h3 class="archive__item-title" itemprop="headline">
-        {% if post.link %}<a href="{{ post.link | escape }}">{{ title }}</a>{% else %}{{ title }}{% endif %}
-    </h3>
-    {% if post.date %}
-      <p class="honor-meta"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i></strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B %Y" }}</time>&nbsp;&nbsp;&nbsp;&nbsp;<strong><i class="fa fa-fw fa-map-marker" aria-hidden="true"></i></strong> <span>{{ post.venue }}</span></p>
-    {% endif %}
- </article>
+  <div class="honor-entry">
+    <span class="honor-title">{% if post.link %}<a href="{{ post.link | escape }}">{{ title }}</a>{% else %}{{ title }}{% endif %}</span>
+    <span class="honor-org"><i>{{ post.venue }}{% if post.date %} {{ post.date | default: "1900-01-01" | date: "%Y" }}{% endif %}</i></span>
+  </div>
 </li>
